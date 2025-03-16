@@ -13,6 +13,16 @@ class TranscodingMessages extends CommonObject {
 
   final String? _value;
 
+  DateTime get timeStamp => _timeStamp;
+
+  TranscodingLevel get level => _level;
+
+  TranscodingIssue get issueCode => _issueCode;
+
+  String? get message => _message;
+
+  String? get value => _value;
+
   TranscodingMessages({
     required DateTime timeStamp,
     required TranscodingLevel level,

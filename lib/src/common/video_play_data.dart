@@ -75,6 +75,52 @@ class VideoPlayData extends CommonObject {
        _fontFamily = fontFamily,
        _playbackSpeeds = playbackSpeeds;
 
+  Video get video => _video;
+
+  String? get captionsPath => _captionsPath;
+
+  String? get seekPath => _seekPath;
+
+  String? get thumbnailUrl => _thumbnailUrl;
+
+  String? get fallbackUrl => _fallbackUrl;
+
+  String? get videoPlaylistUrl => _videoPlaylistUrl;
+
+  String? get originalUrl => _originalUrl;
+
+  String? get previewUrl => _previewUrl;
+
+  String? get controls => _controls;
+
+  bool? get enableDRM => _enableDRM;
+
+  int? get drmVersion => _drmVersion;
+
+  String? get playerKeyColor => _playerKeyColor;
+
+  String? get vastTagUrl => _vastTagUrl;
+
+  int? get captionsFontSize => _captionsFontSize;
+
+  String? get captionsFontColor => _captionsFontColor;
+
+  String? get captionsBackground => _captionsBackground;
+
+  String? get uiLanguage => _uiLanguage;
+
+  bool? get allowEarlyPlay => _allowEarlyPlay;
+
+  bool? get tokenAuthEnabled => _tokenAuthEnabled;
+
+  bool? get enableMP4Fallback => _enableMP4Fallback;
+
+  bool? get showHeatmap => _showHeatmap;
+
+  String? get fontFamily => _fontFamily;
+
+  String? get playbackSpeeds => _playbackSpeeds;
+
   factory VideoPlayData.fromMap(Map<String, dynamic> map) => VideoPlayData(
     Video.fromMap(map['video']),
     captionsPath: map['captionsPath'],

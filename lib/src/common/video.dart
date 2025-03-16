@@ -92,6 +92,35 @@ class Video extends CommonObject {
   /// The list of transcoding messages that describe potential issues while the video was transcoding
   final List<TranscodingMessages>? _transcodingMessages;
 
+  int get videoLibraryId => _videoLibraryId;
+  String? get guid => _guid;
+  String? get title => _title;
+  DateTime get dateUploaded => _dateUploaded;
+  int get views => _views;
+  bool get isPublic => _isPublic;
+  int get length => _length;
+  VideoStatus get status => _status;
+  double get framerate => _framerate;
+  int? get rotation => _rotation;
+  int get width => _width;
+  int get height => _height;
+  String? get availableResolutions => _availableResolutions;
+  String? get outputCodecs => _outputCodecs;
+  int get thumbnailCount => _thumbnailCount;
+  int get encodeProgress => _encodeProgress;
+  int get storageSize => _storageSize;
+  List<Caption>? get captions => _captions;
+  bool get hasMp4Fallback => _hasMp4Fallback;
+  String? get collectionId => _collectionId;
+  String? get thumbnailFileName => _thumbnailFileName;
+  int get averageWatchTime => _averageWatchTime;
+  int get totalWatchTime => _totalWatchTime;
+  String? get category => _category;
+  List<VideoChapter>? get chapters => _chapters;
+  List<VideoMoment>? get moments => _moments;
+  List<VideoMetaTag>? get metaTags => _metaTags;
+  List<TranscodingMessages>? get transcodingMessages => _transcodingMessages;
+
   Video({
     required int videoLibraryId,
     String? guid,

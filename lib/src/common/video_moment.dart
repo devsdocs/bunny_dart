@@ -10,6 +10,10 @@ class VideoMoment extends CommonObject {
   /// The timestamp of the moment in seconds
   final int? _time;
 
+  String get label => _label;
+
+  int? get time => _time;
+
   VideoMoment(String label, {int? time})
     : assert(label.isNotEmpty),
       _label = label,

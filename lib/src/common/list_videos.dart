@@ -9,6 +9,11 @@ class ListVideos extends CommonObject {
   final int _itemsPerPage;
   final List<Video>? _items;
 
+  int get totalItems => _totalItems;
+  int get currentPage => _currentPage;
+  int get itemsPerPage => _itemsPerPage;
+  List<Video>? get items => _items;
+
   ListVideos({
     required int totalItems,
     required int currentPage,

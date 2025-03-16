@@ -3,19 +3,30 @@
 import 'package:bunny_dart/src/common/common_object.dart';
 
 class CommonResponse extends CommonObject {
-  final bool success;
-  final String? message;
-  final int statusCode;
+  final bool _success;
+  final String? _message;
+  final int _statusCode;
 
-  CommonResponse(this.success, this.message, this.statusCode);
+  bool get isSuccess => _success;
+
+  bool get isError => !_success;
+
+  String? get errorMessage => _message;
+
+  int? get errorStatusCode => _statusCode;
+
+  CommonResponse(bool success, String? message, int statusCode)
+    : _success = success,
+      _message = message,
+      _statusCode = statusCode;
 
   factory CommonResponse.fromMap(Map<String, dynamic> map) =>
       CommonResponse(map['success'], map['message'], map['statusCode']);
 
   @override
   Map<String, dynamic> get toMap => {
-    'success': success,
-    'message': message,
-    'statusCode': statusCode,
+    'success': _success,
+    'message': _message,
+    'statusCode': _statusCode,
   };
 }

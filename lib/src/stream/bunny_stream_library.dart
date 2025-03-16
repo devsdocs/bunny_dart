@@ -369,13 +369,9 @@ class BunnyStreamLibrary {
 
   Future<ListVideos?> listVideos({
     int page = 1,
-
     int itemsPerPage = 100,
-
     String? search,
-
     String? collectionId,
-
     String orderBy = 'date',
   }) async {
     try {

@@ -9,6 +9,10 @@ class Caption extends CommonObject {
   /// The text description label for the caption
   final String? _label;
 
+  String? get srclang => _srclang;
+
+  String? get label => _label;
+
   Caption({String? srcLang, String? label})
     : _srclang = srcLang,
       _label = label;

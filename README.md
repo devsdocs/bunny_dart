@@ -1,1 +1,1 @@
-Dart Wrapper for [Bunny.net](https://docs.bunny.net/reference) API
+(WIP) Dart Wrapper for [Bunny.net](https://docs.bunny.net/reference) API

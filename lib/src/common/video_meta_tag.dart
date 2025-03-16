@@ -10,6 +10,9 @@ class VideoMetaTag extends CommonObject {
   /// The value of the meta tag
   final String? _value;
 
+  String? get property => _property;
+  String? get value => _value;
+
   VideoMetaTag({String? property, String? value})
     : _property = property,
       _value = value;

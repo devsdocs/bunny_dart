@@ -13,6 +13,12 @@ class VideoChapter extends CommonObject {
   /// The end time of the chapter in seconds
   final int? _end;
 
+  String get title => _title;
+
+  int? get start => _start;
+
+  int? get end => _end;
+
   VideoChapter(String title, {int? start, int? end})
     : assert(title.isNotEmpty),
       _title = title,
