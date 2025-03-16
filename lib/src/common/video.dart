@@ -110,7 +110,7 @@ class Video extends CommonObject {
   int get encodeProgress => _encodeProgress;
   int get storageSize => _storageSize;
   List<Caption>? get captions => _captions;
-  bool get hasMp4Fallback => _hasMP4Fallback;
+  bool get hasMP4Fallback => _hasMP4Fallback;
   String? get collectionId => _collectionId;
   String? get thumbnailFileName => _thumbnailFileName;
   int get averageWatchTime => _averageWatchTime;
