@@ -14,7 +14,10 @@ class _DioProxy {
     uri,
     data: data,
     options: (opt ?? Options()).copyWith(
-      headers: {HttpHeaders.acceptHeader: 'application/json'},
+      headers: {
+        if (opt?.headers != null) ...?opt?.headers,
+        HttpHeaders.acceptHeader: Headers.jsonContentType,
+      },
       responseType: ResponseType.json,
     ),
   );
@@ -27,7 +30,10 @@ class _DioProxy {
     uri,
     data: data,
     options: (opt ?? Options()).copyWith(
-      headers: {HttpHeaders.acceptHeader: 'application/json'},
+      headers: {
+        if (opt?.headers != null) ...?opt?.headers,
+        HttpHeaders.acceptHeader: Headers.jsonContentType,
+      },
       responseType: ResponseType.json,
     ),
   );
@@ -40,7 +46,10 @@ class _DioProxy {
     uri,
     data: data,
     options: (opt ?? Options()).copyWith(
-      headers: {HttpHeaders.acceptHeader: 'application/json'},
+      headers: {
+        if (opt?.headers != null) ...?opt?.headers,
+        HttpHeaders.acceptHeader: Headers.jsonContentType,
+      },
       responseType: ResponseType.json,
     ),
   );
@@ -53,7 +62,10 @@ class _DioProxy {
     uri,
     data: data,
     options: (opt ?? Options()).copyWith(
-      headers: {HttpHeaders.acceptHeader: 'application/json'},
+      headers: {
+        if (opt?.headers != null) ...?opt?.headers,
+        HttpHeaders.acceptHeader: Headers.jsonContentType,
+      },
       responseType: ResponseType.json,
     ),
   );

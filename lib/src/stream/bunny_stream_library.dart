@@ -7,6 +7,7 @@ import 'package:bunny_dart/src/common/video_moment.dart';
 import 'package:bunny_dart/src/common/video_play_data.dart';
 import 'package:bunny_dart/src/stream/bunny_stream_collection.dart';
 import 'package:bunny_dart/src/tool/dio_proxy.dart';
+import 'package:bunny_dart/src/tool/verbose.dart';
 import 'package:dio/dio.dart';
 
 class BunnyStreamLibrary {
@@ -19,8 +20,18 @@ class BunnyStreamLibrary {
         collectionId: collectionId,
       );
 
+  void _sendError(String message) {
+    errorPrint(message, isPrint: _errorPrint);
+  }
+
   Uri _libraryMethod([String? path, Map<String, dynamic>? queryParameters]) =>
-      Uri.https(_base, '/library/$_libraryId${path ?? ''}', queryParameters);
+      Uri.https(
+        _base,
+        '/library/$_libraryId${path ?? ''}',
+        queryParameters?.map(
+          (k, v) => MapEntry(k, v is int ? v.toString() : v),
+        ),
+      );
 
   Uri _videoMethod(
     String videoId, [
@@ -29,7 +40,7 @@ class BunnyStreamLibrary {
   ]) => Uri.https(
     _base,
     '/library/$_libraryId/videos/$videoId${path ?? ''}',
-    queryParameters,
+    queryParameters?.map((k, v) => MapEntry(k, v is int ? v.toString() : v)),
   );
 
   Options get _defaultOptions => Options(headers: {'AccessKey': _streamKey});
@@ -41,10 +52,15 @@ class BunnyStreamLibrary {
 
   final int _libraryId;
   final String _streamKey;
+  final bool _errorPrint;
 
-  BunnyStreamLibrary(String streamKey, {required int libraryId})
-    : _streamKey = streamKey,
-      _libraryId = libraryId;
+  BunnyStreamLibrary(
+    String streamKey, {
+    required int libraryId,
+    bool errorPrint = false,
+  }) : _streamKey = streamKey,
+       _errorPrint = errorPrint,
+       _libraryId = libraryId;
 
   /// Get a video from the library.
   ///
@@ -58,7 +74,8 @@ class BunnyStreamLibrary {
     try {
       final response = await getVideoResponse(videoId);
       return Video.fromMap(response.data!);
-    } catch (e) {
+    } catch (e, s) {
+      _sendError('Error: $e\nStack: $s');
       return null;
     }
   }
@@ -117,7 +134,8 @@ class BunnyStreamLibrary {
         metaTags: metaTags,
       );
       return CommonResponse.fromMap(response.data!);
-    } catch (e) {
+    } catch (e, s) {
+      _sendError('Error: $e\nStack: $s');
       return null;
     }
   }
@@ -134,7 +152,8 @@ class BunnyStreamLibrary {
     try {
       final response = await deleteVideoResponse(videoId);
       return CommonResponse.fromMap(response.data!);
-    } catch (e) {
+    } catch (e, s) {
+      _sendError('Error: $e\nStack: $s');
       return null;
     }
   }
@@ -170,7 +189,8 @@ class BunnyStreamLibrary {
         codecs: codecs,
       );
       return CommonResponse.fromMap(response.data!);
-    } catch (e) {
+    } catch (e, s) {
+      _sendError('Error: $e\nStack: $s');
       return null;
     }
   }
@@ -187,7 +207,7 @@ class BunnyStreamLibrary {
   //   try {
   //     final response = await getVideoHeatmapResponse(videoId);
   //     return VideoHeatmap.fromMap(response.data!);
-  //   } catch (e) {
+  //   } catch (e,s) {
   //     return null;
   //   }
   // }
@@ -210,7 +230,8 @@ class BunnyStreamLibrary {
     try {
       final response = await getVideoPlayDataResponse(videoId);
       return VideoPlayData.fromMap(response.data!);
-    } catch (e) {
+    } catch (e, s) {
+      _sendError('Error: $e\nStack: $s');
       return null;
     }
   }
@@ -254,7 +275,7 @@ class BunnyStreamLibrary {
   //       videoGuid: videoGuid,
   //     );
   //     return VideoStatistics.fromMap(response.data!);
-  //   } catch (e) {
+  //   } catch (e,s) {
   //     return null;
   //   }
   // }
@@ -272,7 +293,8 @@ class BunnyStreamLibrary {
     try {
       final response = await reencodeVideoResponse(videoId);
       return Video.fromMap(response.data!);
-    } catch (e) {
+    } catch (e, s) {
+      _sendError('Error: $e\nStack: $s');
       return null;
     }
   }
@@ -306,7 +328,8 @@ class BunnyStreamLibrary {
         outputCodec: outputCodec,
       );
       return Video.fromMap(response.data!);
-    } catch (e) {
+    } catch (e, s) {
+      _sendError('Error: $e\nStack: $s');
       return null;
     }
   }
@@ -333,7 +356,8 @@ class BunnyStreamLibrary {
         keepOriginalFiles: keepOriginalFiles,
       );
       return Video.fromMap(response.data!);
-    } catch (e) {
+    } catch (e, s) {
+      _sendError('Error: $e\nStack: $s');
       return null;
     }
   }
@@ -383,7 +407,8 @@ class BunnyStreamLibrary {
         orderBy: orderBy,
       );
       return ListVideos.fromMap(response.data!);
-    } catch (e) {
+    } catch (e, s) {
+      _sendError('Error: $e\nStack: $s');
       return null;
     }
   }
