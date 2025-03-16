@@ -15,7 +15,7 @@ class _DioProxy {
     data: data,
     options: (opt ?? Options()).copyWith(
       headers: {
-        if (opt?.headers != null) ...?opt?.headers,
+        ...?opt?.headers,
         HttpHeaders.acceptHeader: Headers.jsonContentType,
       },
       responseType: ResponseType.json,
@@ -31,7 +31,7 @@ class _DioProxy {
     data: data,
     options: (opt ?? Options()).copyWith(
       headers: {
-        if (opt?.headers != null) ...?opt?.headers,
+        ...?opt?.headers,
         HttpHeaders.acceptHeader: Headers.jsonContentType,
       },
       responseType: ResponseType.json,
@@ -47,7 +47,7 @@ class _DioProxy {
     data: data,
     options: (opt ?? Options()).copyWith(
       headers: {
-        if (opt?.headers != null) ...?opt?.headers,
+        ...?opt?.headers,
         HttpHeaders.acceptHeader: Headers.jsonContentType,
       },
       responseType: ResponseType.json,
@@ -63,7 +63,7 @@ class _DioProxy {
     data: data,
     options: (opt ?? Options()).copyWith(
       headers: {
-        if (opt?.headers != null) ...?opt?.headers,
+        ...?opt?.headers,
         HttpHeaders.acceptHeader: Headers.jsonContentType,
       },
       responseType: ResponseType.json,
