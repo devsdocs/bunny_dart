@@ -63,7 +63,7 @@ class Video extends CommonObject {
   final List<Caption>? _captions;
 
   /// Determines if the video has MP4 fallback files generated
-  final bool _hasMp4Fallback;
+  final bool _hasMP4Fallback;
 
   /// The ID of the collection where the video belongs
   final String? _collectionId;
@@ -110,7 +110,7 @@ class Video extends CommonObject {
   int get encodeProgress => _encodeProgress;
   int get storageSize => _storageSize;
   List<Caption>? get captions => _captions;
-  bool get hasMp4Fallback => _hasMp4Fallback;
+  bool get hasMp4Fallback => _hasMP4Fallback;
   String? get collectionId => _collectionId;
   String? get thumbnailFileName => _thumbnailFileName;
   int get averageWatchTime => _averageWatchTime;
@@ -140,7 +140,7 @@ class Video extends CommonObject {
     required int encodeProgress,
     required int storageSize,
     List<Caption>? captions,
-    required bool hasMp4Fallback,
+    required bool hasMP4Fallback,
     String? collectionId,
     String? thumbnailFileName,
     required int averageWatchTime,
@@ -168,7 +168,7 @@ class Video extends CommonObject {
        _encodeProgress = encodeProgress,
        _storageSize = storageSize,
        _captions = captions,
-       _hasMp4Fallback = hasMp4Fallback,
+       _hasMP4Fallback = hasMP4Fallback,
        _collectionId = collectionId,
        _thumbnailFileName = thumbnailFileName,
        _averageWatchTime = averageWatchTime,
@@ -205,7 +205,7 @@ class Video extends CommonObject {
               ),
             )
             : null,
-    hasMp4Fallback: map['hasMp4Fallback'] ?? false,
+    hasMP4Fallback: map['hasMP4Fallback'] ?? false,
     collectionId: map['collectionId'] as String?,
     thumbnailFileName: map['thumbnailFileName'] as String?,
     averageWatchTime: map['averageWatchTime']?.toInt() ?? 0,
@@ -267,7 +267,7 @@ class Video extends CommonObject {
     'storageSize': _storageSize,
     if (_captions != null && _captions.isNotEmpty)
       'captions': _captions.map((e) => e.toMap).toList(),
-    'hasMp4Fallback': _hasMp4Fallback,
+    'hasMp4Fallback': _hasMP4Fallback,
     if (_collectionId != null) 'collectionId': _collectionId,
     if (_thumbnailFileName != null) 'thumbnailFileName': _thumbnailFileName,
     'averageWatchTime': _averageWatchTime,

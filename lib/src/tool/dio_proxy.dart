@@ -18,7 +18,6 @@ class _DioProxy {
         ...?opt?.headers,
         HttpHeaders.acceptHeader: Headers.jsonContentType,
       },
-      responseType: ResponseType.json,
     ),
   );
 
@@ -34,7 +33,6 @@ class _DioProxy {
         ...?opt?.headers,
         HttpHeaders.acceptHeader: Headers.jsonContentType,
       },
-      responseType: ResponseType.json,
     ),
   );
 
@@ -50,7 +48,6 @@ class _DioProxy {
         ...?opt?.headers,
         HttpHeaders.acceptHeader: Headers.jsonContentType,
       },
-      responseType: ResponseType.json,
     ),
   );
 
@@ -66,7 +63,6 @@ class _DioProxy {
         ...?opt?.headers,
         HttpHeaders.acceptHeader: Headers.jsonContentType,
       },
-      responseType: ResponseType.json,
     ),
   );
 }
