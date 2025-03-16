@@ -32,6 +32,10 @@ abstract class TusClientBase {
     this.retries = 0,
     this.retryScale = RetryScale.constant,
     this.retryInterval = 0,
+    this.parallelUploads = 1,
+    this.connectionTimeout = const Duration(seconds: 30),
+    this.receiveTimeout = const Duration(seconds: 30),
+    this.enableCompression = true,
   });
 
   /// Create a new upload URL
@@ -104,6 +108,18 @@ abstract class TusClientBase {
 
   /// The scale type used to increase the interval of time between every retry.
   final RetryScale retryScale;
+
+  /// The number of parallel chunk uploads (defaults to 1 for sequential uploads)
+  final int parallelUploads;
+
+  /// Connection timeout for network requests
+  final Duration connectionTimeout;
+
+  /// Receive timeout for network requests
+  final Duration receiveTimeout;
+
+  /// Whether to use compression for uploads when supported
+  final bool enableCompression;
 
   /// Whether the client supports resuming
   bool get resumingEnabled => store != null;
