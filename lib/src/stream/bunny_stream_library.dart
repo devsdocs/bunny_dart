@@ -13,12 +13,12 @@ import 'package:dio/dio.dart';
 class BunnyStreamLibrary {
   static const _base = 'video.bunnycdn.com';
 
-  BunnyStreamCollection collection(String collectionId) =>
-      BunnyStreamCollection(
-        _streamKey,
-        libraryId: _libraryId,
-        collectionId: collectionId,
-      );
+  // BunnyStreamCollection collection(String collectionId) =>
+  //     BunnyStreamCollection(
+  //       _streamKey,
+  //       libraryId: _libraryId,
+  //       collectionId: collectionId,
+  //     );
 
   void _sendError(String message) {
     errorPrint(message, isPrint: _errorPrint);
