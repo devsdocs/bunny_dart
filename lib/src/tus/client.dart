@@ -209,7 +209,7 @@ class TusClient extends TusClientBase {
     required int totalBytes,
   }) async {
     try {
-      _response = await client.patchUri(
+      _response = await client.patchUri<ResponseBody>(
         _uploadUrl!,
         data: await _getData(),
         options: Options(
@@ -219,7 +219,7 @@ class TusClient extends TusClientBase {
       );
 
       if (_response != null) {
-        (_response!.data.stream as Stream<Uint8List>).listen(
+        (_response!.data as ResponseBody).stream.listen(
           (newBytes) {
             if (_actualRetry != 0) _actualRetry = 0;
           },
@@ -306,7 +306,7 @@ class TusClient extends TusClientBase {
   Future<bool> pauseUpload() async {
     try {
       _pauseUpload = true;
-      (_response?.data.stream as Stream<Uint8List>).timeout(Duration.zero);
+      (_response?.data as ResponseBody).stream.timeout(Duration.zero);
       return true;
     } catch (e) {
       throw Exception("Error pausing upload");
