@@ -1,7 +1,10 @@
+import 'package:bunny_dart/src/common/list_videos.dart';
+import 'package:bunny_dart/src/common/response.dart';
 import 'package:bunny_dart/src/common/video.dart';
 import 'package:bunny_dart/src/common/video_chapter.dart';
 import 'package:bunny_dart/src/common/video_meta_tag.dart';
 import 'package:bunny_dart/src/common/video_moment.dart';
+import 'package:bunny_dart/src/common/video_play_data.dart';
 import 'package:bunny_dart/src/stream/bunny_stream_collection.dart';
 import 'package:bunny_dart/src/tool/dio_proxy.dart';
 import 'package:dio/dio.dart';
@@ -46,14 +49,14 @@ class BunnyStreamLibrary {
   /// Get a video from the library.
   ///
   /// https://docs.bunny.net/reference/video_getvideo
-  Future<Response<Map<String, dynamic>>> _getVideoResponse(
+  Future<Response<Map<String, dynamic>>> getVideoResponse(
     /// The video ID to retrieve.
     String videoId,
-  ) async => await dio.get(_videoMethod(videoId), _defaultOptions);
+  ) async => await dio.get(_videoMethod(videoId), opt: _defaultOptions);
 
   Future<Video?> getVideo(String videoId) async {
     try {
-      final response = await _getVideoResponse(videoId);
+      final response = await getVideoResponse(videoId);
       return Video.fromMap(response.data!);
     } catch (e) {
       return null;
@@ -63,7 +66,7 @@ class BunnyStreamLibrary {
   /// Update a video in the library.
   ///
   /// https://docs.bunny.net/reference/video_updatevideo
-  Future<Response<Map<String, dynamic>>> _updateVideoResponse(
+  Future<Response<Map<String, dynamic>>> updateVideoResponse(
     /// The video ID to update.
     String videoId, {
 
@@ -83,7 +86,7 @@ class BunnyStreamLibrary {
     List<VideoMetaTag>? metaTags,
   }) async => await dio.post(
     _videoMethod(videoId),
-    _optionsWithPostBody,
+    opt: _optionsWithPostBody,
     data: {
       if (title != null) 'title': title,
       if (collectionId != null) 'collection': collectionId,
@@ -96,18 +99,50 @@ class BunnyStreamLibrary {
     },
   );
 
+  Future<CommonResponse?> updateVideo(
+    String videoId, {
+    String? title,
+    String? collectionId,
+    List<VideoChapter>? chapters,
+    List<VideoMoment>? moments,
+    List<VideoMetaTag>? metaTags,
+  }) async {
+    try {
+      final response = await updateVideoResponse(
+        videoId,
+        title: title,
+        collectionId: collectionId,
+        chapters: chapters,
+        moments: moments,
+        metaTags: metaTags,
+      );
+      return CommonResponse.fromMap(response.data!);
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Delete a video from the library.
   ///
   /// https://docs.bunny.net/reference/video_deletevideo
-  Future<Response<Map<String, dynamic>>> _deleteVideoResponse(
+  Future<Response<Map<String, dynamic>>> deleteVideoResponse(
     /// The video ID to delete.
     String videoId,
-  ) async => await dio.delete(_videoMethod(videoId), _defaultOptions);
+  ) async => await dio.delete(_videoMethod(videoId), opt: _defaultOptions);
+
+  Future<CommonResponse?> deleteVideo(String videoId) async {
+    try {
+      final response = await deleteVideoResponse(videoId);
+      return CommonResponse.fromMap(response.data!);
+    } catch (e) {
+      return null;
+    }
+  }
 
   /// Upload a video to the library.
   ///
   /// https://docs.bunny.net/reference/video_uploadvideo
-  Future<Response<Map<String, dynamic>>> _uploadVideoResponse(
+  Future<Response<Map<String, dynamic>>> uploadVideoResponse(
     /// The video ID to be uploaded.
     String videoId, {
 
@@ -119,17 +154,199 @@ class BunnyStreamLibrary {
 
     /// List of codecs that will be used to encode the file (overrides library settings). Available values: x264, vp9
     String? codecs,
-  }) async => await dio.post(_videoMethod(videoId), _defaultOptions);
+  }) async => await dio.post(_videoMethod(videoId), opt: _defaultOptions);
+
+  Future<CommonResponse?> uploadVideo(
+    String videoId, {
+    bool jitEnabled = false,
+    String? resolutions,
+    String? codecs,
+  }) async {
+    try {
+      final response = await uploadVideoResponse(
+        videoId,
+        jitEnabled: jitEnabled,
+        resolutions: resolutions,
+        codecs: codecs,
+      );
+      return CommonResponse.fromMap(response.data!);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get Video Heatmap
+  ///
+  /// https://docs.bunny.net/reference/video_getheatmap
+  Future<Response<Map<String, dynamic>>> getVideoHeatmapResponse(
+    String videoId,
+  ) async =>
+      await dio.get(_videoMethod(videoId, '/heatmap'), opt: _defaultOptions);
+
+  // Future<VideoHeatmap?> getVideoHeatmap(String videoId) async {
+  //   try {
+  //     final response = await getVideoHeatmapResponse(videoId);
+  //     return VideoHeatmap.fromMap(response.data!);
+  //   } catch (e) {
+  //     return null;
+  //   }
+  // }
+
+  /// Get Video play data
+  ///
+  /// https://docs.bunny.net/reference/video_getvideoplaydata
+  Future<Response<Map<String, dynamic>>> getVideoPlayDataResponse(
+    /// The video ID to retrieve.
+    String videoId, {
+
+    /// Account token.
+    String? token,
+
+    /// The expiress to retrieve.
+    int expiress = 0,
+  }) async => await dio.get(_videoMethod(videoId, '/play'));
+
+  Future<VideoPlayData?> getVideoPlayData(String videoId) async {
+    try {
+      final response = await getVideoPlayDataResponse(videoId);
+      return VideoPlayData.fromMap(response.data!);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get Video Statistics
+  ///
+  /// https://docs.bunny.net/reference/video_getvideostatistics
+  Future<Response<Map<String, dynamic>>> getVideoStatisticsResponse({
+    /// The start date of the statistics. If no value is passed, the last 30 days will be returned.
+    DateTime? dateFrom,
+
+    /// The end date of the statistics. If no value is passed, the last 30 days will be returned.
+    DateTime? dateTo,
+
+    /// If true, the statistics data will be returned in hourly groupping.
+    bool hourly = false,
+
+    /// The GUID of the video for which the statistics will be returned
+    String? videoGuid,
+  }) async => await dio.get(
+    _libraryMethod('/statistics', {
+      if (dateFrom != null) 'dateFrom': dateFrom.toIso8601String(),
+      if (dateTo != null) 'dateTo': dateTo.toIso8601String(),
+      if (hourly) 'hourly': true,
+      if (videoGuid != null) 'videoGuid': videoGuid,
+    }),
+    opt: _defaultOptions,
+  );
+
+  // Future<VideoStatistics?> getVideoStatistics({
+  //   DateTime? dateFrom,
+  //   DateTime? dateTo,
+  //   bool hourly = false,
+  //   String? videoGuid,
+  // }) async {
+  //   try {
+  //     final response = await getVideoStatisticsResponse(
+  //       dateFrom: dateFrom,
+  //       dateTo: dateTo,
+  //       hourly: hourly,
+  //       videoGuid: videoGuid,
+  //     );
+  //     return VideoStatistics.fromMap(response.data!);
+  //   } catch (e) {
+  //     return null;
+  //   }
+  // }
+
+  /// Reencode Video
+  ///
+  /// https://docs.bunny.net/reference/video_reencodevideo
+  Future<Response<Map<String, dynamic>>> reencodeVideoResponse(
+    /// The video ID to reencode.
+    String videoId,
+  ) async =>
+      await dio.post(_videoMethod(videoId, '/reencode'), opt: _defaultOptions);
+
+  Future<Video?> reencodeVideo(String videoId) async {
+    try {
+      final response = await reencodeVideoResponse(videoId);
+      return Video.fromMap(response.data!);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Add output codec to video
+  ///
+  /// https://docs.bunny.net/reference/video_reencodeusingcodec
+  Future<Response<Map<String, dynamic>>> addOutputCodecResponse(
+    /// The video ID to add output codec.
+    String videoId, {
+
+    /// The output codec to add.
+    /// 0 = x264
+    /// 1 = vp9
+    /// 2 = hevc
+    /// 3 = av1
+    required int outputCodec,
+  }) async => await dio.put(
+    _videoMethod(videoId, '/outputs/$outputCodec'),
+    data: {'outputCodec': outputCodec},
+    opt: _defaultOptions,
+  );
+
+  Future<Video?> addOutputCodec(
+    String videoId, {
+    required int outputCodec,
+  }) async {
+    try {
+      final response = await addOutputCodecResponse(
+        videoId,
+        outputCodec: outputCodec,
+      );
+      return Video.fromMap(response.data!);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Repackage Video
+  ///
+  /// https://docs.bunny.net/reference/video_repackage
+  Future<Response<Map<String, dynamic>>> repackageVideoResponse(
+    /// The video ID to repackage.
+    String videoId, {
+
+    /// Marks whether previous file versions should be kept in storage, allows for faster repackage later on. Default is true.
+    bool keepOriginalFiles = true,
+  }) async =>
+      await dio.post(_videoMethod(videoId, '/repackage'), opt: _defaultOptions);
+
+  Future<Video?> repackageVideo(
+    String videoId, {
+    bool keepOriginalFiles = true,
+  }) async {
+    try {
+      final response = await repackageVideoResponse(
+        videoId,
+        keepOriginalFiles: keepOriginalFiles,
+      );
+      return Video.fromMap(response.data!);
+    } catch (e) {
+      return null;
+    }
+  }
 
   /// List all videos in the library.
   ///
   /// https://docs.bunny.net/reference/video_list
-  Future<Response<Map<String, dynamic>>> _listVideosResponse({
+  Future<Response<Map<String, dynamic>>> listVideosResponse({
     /// The page number to retrieve. Default is 1.
-    int? page,
+    int page = 1,
 
     /// The number of items to retrieve per page. Default is 100.
-    int? itemsPerPage,
+    int itemsPerPage = 100,
 
     /// The search query to filter the videos by.
     String? search,
@@ -138,15 +355,40 @@ class BunnyStreamLibrary {
     String? collectionId,
 
     /// The category ID to filter the videos by. Default is date.
-    String? orderBy,
+    String orderBy = 'date',
   }) async => await dio.get(
     _libraryMethod('/videos', {
       'page': page,
       'itemsPerPage': itemsPerPage,
-      'search': search,
-      'collection': collectionId,
+      if (search != null) 'search': search,
+      if (collectionId != null) 'collection': collectionId,
       'orderBy': orderBy,
     }),
-    _defaultOptions,
+    opt: _defaultOptions,
   );
+
+  Future<ListVideos?> listVideos({
+    int page = 1,
+
+    int itemsPerPage = 100,
+
+    String? search,
+
+    String? collectionId,
+
+    String orderBy = 'date',
+  }) async {
+    try {
+      final response = await listVideosResponse(
+        page: page,
+        itemsPerPage: itemsPerPage,
+        search: search,
+        collectionId: collectionId,
+        orderBy: orderBy,
+      );
+      return ListVideos.fromMap(response.data!);
+    } catch (e) {
+      return null;
+    }
+  }
 }
