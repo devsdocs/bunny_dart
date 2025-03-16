@@ -1,4 +1,7 @@
-import 'package:bunny_dart/src/common/common.dart';
+import 'package:bunny_dart/src/common/video.dart';
+import 'package:bunny_dart/src/common/video_chapter.dart';
+import 'package:bunny_dart/src/common/video_meta_tag.dart';
+import 'package:bunny_dart/src/common/video_moment.dart';
 import 'package:bunny_dart/src/stream/bunny_stream_collection.dart';
 import 'package:bunny_dart/src/tool/dio_proxy.dart';
 import 'package:dio/dio.dart';
@@ -47,6 +50,15 @@ class BunnyStreamLibrary {
     /// The video ID to retrieve.
     String videoId,
   ) async => await dio.get(_videoMethod(videoId), _defaultOptions);
+
+  Future<Video?> getVideo(String videoId) async {
+    try {
+      final response = await _getVideoResponse(videoId);
+      return Video.fromMap(response.data!);
+    } catch (e) {
+      return null;
+    }
+  }
 
   /// Update a video in the library.
   ///
@@ -97,8 +109,17 @@ class BunnyStreamLibrary {
   /// https://docs.bunny.net/reference/video_uploadvideo
   Future<Response<Map<String, dynamic>>> _uploadVideoResponse(
     /// The video ID to be uploaded.
-    String videoId,
-  ) async => await dio.post(_videoMethod(videoId), _defaultOptions);
+    String videoId, {
+
+    /// Marks whether JIT encoding should be enabled for this video (works only when Premium Encoding is enabled), overrides library settings
+    bool jitEnabled = false,
+
+    /// Comma separated list of resolutions enabled for encoding, available options: 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p
+    String? resolutions,
+
+    /// List of codecs that will be used to encode the file (overrides library settings). Available values: x264, vp9
+    String? codecs,
+  }) async => await dio.post(_videoMethod(videoId), _defaultOptions);
 
   /// List all videos in the library.
   ///
