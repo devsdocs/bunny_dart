@@ -445,7 +445,6 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
     int retryInterval = 5,
     int parallelUploads = 3,
     bool forceSequential = false,
-    bool forceNewUpload = false,
   }) async {
     try {
       // First create the video entry to get the ID
