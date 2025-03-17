@@ -54,6 +54,7 @@ abstract class TusClientBase {
     required Uri uri,
     Map<String, String>? metadata = const {},
     Map<String, String>? headers = const {},
+    bool measureUploadSpeed = false,
   });
 
   /// Pauses the upload
