@@ -409,6 +409,24 @@ class BunnyStreamLibrary {
 extension BunnyTUSUpload on BunnyStreamLibrary {
   /// Create a video with TUS upload support
   /// First creates the video entry and then provides a TUS client for uploading
+  /// ``` dart
+  /// final bunnyStream = BunnyStreamLibrary('apiKey', libraryId: 12345);
+  /// final tusClient = await bunnyStream.createVideoWithTusUpload(
+  ///   title: 'My Video',
+  ///   videoFile: XFile('/path/to/video.mp4'),
+  /// );
+  ///
+  /// if (tusClient != null) {
+  ///   await tusClient.startUpload(
+  ///     onProgress: (progress, estimate) {
+  ///       print('Upload progress: $progress%, estimated time: $estimate');
+  ///     },
+  ///     onComplete: () {
+  ///       print('Upload complete!');
+  ///     },
+  ///   );
+  /// }
+  /// ```
   Future<BunnyTusClient?> createVideoWithTusUpload({
     required String title,
     required XFile videoFile,
