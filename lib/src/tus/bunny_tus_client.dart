@@ -3,8 +3,6 @@ import 'dart:developer' show log;
 import 'dart:io';
 
 import 'package:bunny_dart/bunny_dart.dart';
-import 'package:bunny_dart/src/tus/client.dart';
-import 'package:bunny_dart/src/tus/retry_scale.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
