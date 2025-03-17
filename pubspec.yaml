@@ -15,6 +15,5 @@ dependencies:
   speed_test_dart: ^1.0.5+0
 
 dev_dependencies:
-  console_bars: ^1.2.0
   lint: ^2.8.0
   test: ^1.24.0
