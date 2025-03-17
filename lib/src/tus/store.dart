@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 
 /// Implementations of this interface are used to lookup a
 /// [fingerprint] with the corresponding [file].
