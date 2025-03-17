@@ -64,7 +64,8 @@ class FfmpegNotFoundException implements Exception {
   FfmpegNotFoundException([this.message = "FFmpeg not found"]);
 
   @override
-  String toString() => "FfmpegNotFoundException: $message";
+  String toString() =>
+      "FfmpegNotFoundException: $message. Download FFmpeg from https://ffmpeg.org/download.html and add it to your system PATH.";
 }
 
 // ignore: avoid_classes_with_only_static_members
