@@ -513,4 +513,255 @@ class VideoMetadataHelper {
 
     return bunnyMetadata;
   }
+
+  /// Scan a directory and get metadata for all video files that match criteria
+  /// Returns a list of VideoMetadataResult objects
+  static Future<List<VideoMetadataResult>> scanDirectory({
+    required String directory,
+    bool recursive = false,
+    Duration? minDuration,
+    Duration? maxDuration,
+    int? minWidth,
+    int? minHeight,
+    Set<String>? allowedExtensions,
+    bool skipErrors = true,
+  }) async {
+    // Verify FFmpeg is available
+    if (!await isFFmpegAvailable()) {
+      throw FfmpegNotFoundException();
+    }
+
+    // Get all video files in directory
+    final dir = Directory(directory);
+    if (!dir.existsSync()) {
+      throw FileSystemException("Directory not found", directory);
+    }
+
+    final results = <VideoMetadataResult>[];
+    final validExtensions =
+        allowedExtensions ??
+        {'.mp4', '.mov', '.avi', '.mkv', '.wmv', '.webm', '.flv'};
+
+    final fileList = <File>[];
+
+    // Collect files
+    if (recursive) {
+      await for (final entity in dir.list(recursive: true)) {
+        if (entity is File) {
+          final extension = path.extension(entity.path).toLowerCase();
+          if (validExtensions.contains(extension)) {
+            fileList.add(entity);
+          }
+        }
+      }
+    } else {
+      for (final entity in dir.listSync()) {
+        if (entity is File) {
+          final extension = path.extension(entity.path).toLowerCase();
+          if (validExtensions.contains(extension)) {
+            fileList.add(entity);
+          }
+        }
+      }
+    }
+
+    // Process each file
+    for (final file in fileList) {
+      try {
+        final metadata = await getVideoMetadata(file.path);
+
+        // Apply filters
+        bool includeFile = true;
+
+        // Duration filter
+        if (minDuration != null &&
+            (metadata.duration == null || metadata.duration! < minDuration)) {
+          includeFile = false;
+        }
+
+        if (maxDuration != null &&
+            (metadata.duration == null || metadata.duration! > maxDuration)) {
+          includeFile = false;
+        }
+
+        // Resolution filter
+        if (minWidth != null &&
+            minHeight != null &&
+            (metadata.width == null ||
+                metadata.height == null ||
+                metadata.width! < minWidth ||
+                metadata.height! < minHeight)) {
+          includeFile = false;
+        }
+
+        if (includeFile) {
+          results.add(metadata);
+        }
+      } catch (e) {
+        if (!skipErrors) {
+          rethrow;
+        }
+        // Skip files with errors when skipErrors is true
+      }
+    }
+
+    return results;
+  }
+
+  /// Find videos in a directory that meet specific criteria
+  /// Returns a list of file paths
+  static Future<List<String>> findVideosWithCriteria({
+    required String directory,
+    bool recursive = false,
+    Duration? minDuration,
+    Duration? maxDuration,
+    int? minWidth,
+    int? minHeight,
+  }) async {
+    final metadataResults = await scanDirectory(
+      directory: directory,
+      recursive: recursive,
+      minDuration: minDuration,
+      maxDuration: maxDuration,
+      minWidth: minWidth,
+      minHeight: minHeight,
+    );
+
+    return metadataResults.map((result) => result.path).toList();
+  }
+
+  /// Find videos in a directory with duration longer than specified
+  /// Returns a list of file paths
+  static Future<List<String>> findVideosLongerThan(
+    String directory,
+    Duration minDuration, {
+    bool recursive = false,
+  }) async {
+    return await findVideosWithCriteria(
+      directory: directory,
+      recursive: recursive,
+      minDuration: minDuration,
+    );
+  }
+
+  /// Get a summary report of video files in a directory
+  static Future<VideoDirectoryReport> generateDirectoryReport(
+    String directory, {
+    bool recursive = false,
+    bool includeChapters = false,
+  }) async {
+    final allVideos = await scanDirectory(
+      directory: directory,
+      recursive: recursive,
+    );
+
+    // Basic summary stats
+    final totalDuration = allVideos.fold<Duration>(
+      Duration.zero,
+      (sum, video) => sum + (video.duration ?? Duration.zero),
+    );
+
+    final totalFileSize = allVideos.fold<int>(
+      0,
+      (sum, video) => sum + video.fileSize,
+    );
+
+    // Group by format/codec
+    final formatCounts = <String, int>{};
+    final codecCounts = <String, int>{};
+
+    for (final video in allVideos) {
+      final format = video.format ?? 'unknown';
+      formatCounts[format] = (formatCounts[format] ?? 0) + 1;
+
+      final codec = video.codec ?? 'unknown';
+      codecCounts[codec] = (codecCounts[codec] ?? 0) + 1;
+    }
+
+    return VideoDirectoryReport(
+      directory: directory,
+      recursive: recursive,
+      videoCount: allVideos.length,
+      totalDuration: totalDuration,
+      totalFileSize: totalFileSize,
+      formatCounts: formatCounts,
+      codecCounts: codecCounts,
+      videos: allVideos,
+    );
+  }
+}
+
+/// Report with statistics about videos in a directory
+class VideoDirectoryReport {
+  final String directory;
+  final bool recursive;
+  final int videoCount;
+  final Duration totalDuration;
+  final int totalFileSize;
+  final Map<String, int> formatCounts;
+  final Map<String, int> codecCounts;
+  final List<VideoMetadataResult> videos;
+
+  VideoDirectoryReport({
+    required this.directory,
+    required this.recursive,
+    required this.videoCount,
+    required this.totalDuration,
+    required this.totalFileSize,
+    required this.formatCounts,
+    required this.codecCounts,
+    required this.videos,
+  });
+
+  /// Get all videos with duration over a specified minimum
+  List<VideoMetadataResult> getVideosLongerThan(Duration minDuration) {
+    return videos
+        .where((v) => v.duration != null && v.duration! >= minDuration)
+        .toList();
+  }
+
+  /// Get all videos with specific resolution or higher
+  List<VideoMetadataResult> getVideosWithMinResolution(
+    int minWidth,
+    int minHeight,
+  ) {
+    return videos
+        .where(
+          (v) =>
+              v.width != null &&
+              v.height != null &&
+              v.width! >= minWidth &&
+              v.height! >= minHeight,
+        )
+        .toList();
+  }
+
+  /// Get a formatted summary
+  String getSummary() {
+    final buffer = StringBuffer();
+    buffer.writeln('Video Directory Report');
+    buffer.writeln('---------------------');
+    buffer.writeln('Directory: $directory ${recursive ? "(recursive)" : ""}');
+    buffer.writeln('Total videos: $videoCount');
+
+    final hours = totalDuration.inHours;
+    final minutes = totalDuration.inMinutes % 60;
+    final seconds = totalDuration.inSeconds % 60;
+    buffer.writeln('Total duration: ${hours}h ${minutes}m ${seconds}s');
+
+    final sizeInMB = totalFileSize / (1024 * 1024);
+    buffer.writeln('Total size: ${sizeInMB.toStringAsFixed(2)} MB');
+
+    buffer.writeln('\nFormats:');
+    for (final entry in formatCounts.entries) {
+      buffer.writeln('  ${entry.key}: ${entry.value}');
+    }
+
+    buffer.writeln('\nCodecs:');
+    for (final entry in codecCounts.entries) {
+      buffer.writeln('  ${entry.key}: ${entry.value}');
+    }
+
+    return buffer.toString();
+  }
 }
