@@ -18,7 +18,6 @@ export 'src/stream/bunny_stream_library.dart';
 // Tool utilities
 export 'src/tool/dio_proxy.dart';
 export 'src/tool/verbose.dart';
-export 'src/tool/video_batch_uploader.dart';
 export 'src/tool/video_metadata_helper.dart';
 export 'src/tus/bunny_tus_client.dart';
 // TUS upload support

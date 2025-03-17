@@ -1,7 +1,6 @@
 import 'package:bunny_dart/bunny_dart.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
-import 'package:path/path.dart' as path;
 
 class BunnyStreamLibrary {
   static const _base = 'video.bunnycdn.com';
@@ -530,112 +529,6 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
   }
 }
 
-extension BunnyVideoMetadata on BunnyStreamLibrary {
-  /// Create a video with metadata extracted from the local file
-  ///
-  /// This method extracts metadata from the video file, creates a video entry,
-  /// and provides a TUS client for uploading.
-  ///
-  /// ```dart
-  /// final bunnyStream = BunnyStreamLibrary('apiKey', libraryId: 12345);
-  /// final uploadResult = await bunnyStream.createVideoWithMetadata(
-  ///   videoFile: XFile('/path/to/video.mp4'),
-  ///   useFileMetadata: true,
-  ///   detectChapters: true,
-  /// );
-  ///
-  /// if (uploadResult.tusClient != null) {
-  ///   await uploadResult.tusClient.startUpload(
-  ///     onProgress: (progress, estimate) {
-  ///       print('Upload progress: $progress%, estimated time: $estimate');
-  ///     },
-  ///   );
-  /// }
-  /// ```
-  Future<BunnyVideoUploadResult> createVideoWithMetadata({
-    required XFile videoFile,
-    String? title,
-    String? collectionId,
-    bool useFileMetadata = true,
-    bool detectChapters = false,
-    double chapterThreshold = 0.3,
-    int? thumbnailTime,
-    TusStore? store,
-    int maxChunkSize = 512 * 1024,
-    int retries = 3,
-    RetryScale retryScale = RetryScale.exponentialJitter,
-    int retryInterval = 5,
-    int parallelUploads = 3,
-  }) async {
-    try {
-      // Extract metadata from the video file
-      Map<String, dynamic> metadata;
-      if (useFileMetadata) {
-        metadata = await VideoMetadataHelper.prepareBunnyUploadMetadata(
-          videoFile,
-          title: title,
-          collectionId: collectionId,
-          thumbnailTime: thumbnailTime,
-          detectChapters: detectChapters,
-          chapterThreshold: chapterThreshold,
-        );
-      } else {
-        metadata = {
-          'title': title ?? path.basename(videoFile.path),
-          if (collectionId != null) 'collection': collectionId,
-          if (thumbnailTime != null) 'thumbnailTime': thumbnailTime,
-        };
-      }
-
-      // Create the video in Bunny.net
-      final response = await dio.post(
-        _libraryMethod('/videos'),
-        opt: _optionsWithPostBody,
-        data: metadata,
-      );
-
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to create video: ${response.statusCode}');
-      }
-
-      // Extract the video ID from the response
-      final String videoId = response.data!['guid'] as String;
-
-      // Prepare metadata result
-      final metadataResult =
-          useFileMetadata
-              ? await VideoMetadataHelper.getVideoMetadata(videoFile.path)
-              : null;
-
-      // Create TUS client for uploading
-      final tusClient = BunnyTusClient(
-        videoFile,
-        apiKey: _streamKey,
-        libraryId: _libraryId,
-        videoId: videoId,
-        title: metadata['title'] as String,
-        collectionId: collectionId,
-        thumbnailTime: metadata['thumbnailTime'] as int?,
-        store: store,
-        maxChunkSize: maxChunkSize,
-        retries: retries,
-        retryScale: retryScale,
-        retryInterval: retryInterval,
-        parallelUploads: parallelUploads,
-      );
-
-      return BunnyVideoUploadResult(
-        videoId: videoId,
-        tusClient: tusClient,
-        metadata: metadataResult,
-      );
-    } catch (e, s) {
-      _sendError('Error creating video with metadata: $e\nStack: $s');
-      return BunnyVideoUploadResult(error: e.toString());
-    }
-  }
-}
-
 /// Result of a video upload preparation with metadata
 class BunnyVideoUploadResult {
   /// The ID of the created video
@@ -659,64 +552,4 @@ class BunnyVideoUploadResult {
     this.metadata,
     this.error,
   });
-}
-
-extension BunnyVideoBatchOperations on BunnyStreamLibrary {
-  /// Create a batch uploader for processing multiple videos
-  ///
-  /// [maxConcurrentUploads] - How many videos to upload in parallel
-  /// [store] - Optional TUS store for resumable uploads
-  VideoBatchUploader createBatchUploader({
-    int maxConcurrentUploads = 2,
-    TusStore? store,
-    int chunkSize = 512 * 1024,
-    int retries = 3,
-    RetryScale retryScale = RetryScale.exponentialJitter,
-    int retryInterval = 5,
-    int parallelChunks = 3,
-  }) {
-    return VideoBatchUploader(
-      this,
-      maxConcurrentUploads: maxConcurrentUploads,
-      store: store,
-      chunkSize: chunkSize,
-      retries: retries,
-      retryScale: retryScale,
-      retryInterval: retryInterval,
-      parallelChunks: parallelChunks,
-    );
-  }
-
-  /// Convenience method to upload videos from a directory
-  /// that match specific criteria
-  Stream<List<BatchVideoItem>> uploadVideosFromDirectory({
-    required String directory,
-    bool recursive = false,
-    Duration? minDuration,
-    Duration? maxDuration,
-    int? minWidth,
-    int? minHeight,
-    String? collectionId,
-    bool detectChapters = false,
-    TusStore? store,
-    int maxConcurrentUploads = 2,
-  }) async* {
-    final batchUploader = createBatchUploader(
-      maxConcurrentUploads: maxConcurrentUploads,
-      store: store,
-    );
-
-    await batchUploader.addDirectory(directory, recursive: recursive);
-
-    yield* batchUploader.uploadMatchingVideos(
-      directory: directory,
-      recursive: recursive,
-      minDuration: minDuration,
-      maxDuration: maxDuration,
-      minWidth: minWidth,
-      minHeight: minHeight,
-      collectionId: collectionId,
-      detectChapters: detectChapters,
-    );
-  }
 }
