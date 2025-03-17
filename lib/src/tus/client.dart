@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:math' show min;
 import 'dart:typed_data' show BytesBuilder, Uint8List;
 
+import 'package:bunny_dart/src/tool/double.dart';
 import 'package:bunny_dart/src/tus/exceptions.dart';
 import 'package:bunny_dart/src/tus/retry_scale.dart';
 import 'package:bunny_dart/src/tus/tus_client_base.dart';
@@ -266,7 +267,8 @@ class TusClient extends TusClientBase {
     Timer? progressTimer;
     if (onProgress != null) {
       progressTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
-        final currentProgress = totalProgress / totalBytes * 100;
+        final currentProgress =
+            (totalProgress / totalBytes * 100).toPrecision(2).toDouble();
 
         double _workedUploadSpeed = 1.0;
         if (uploadSpeed != null) {
@@ -540,7 +542,8 @@ class TusClient extends TusClientBase {
                 estimate = Duration.zero;
               }
 
-              final progress = totalSent / totalBytes * 100;
+              final progress =
+                  (totalSent / totalBytes * 100).toPrecision(2).toDouble();
               onProgress(progress.clamp(0, 100), estimate);
               _actualRetry = 0;
             }
