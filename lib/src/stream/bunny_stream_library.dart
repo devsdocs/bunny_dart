@@ -1,13 +1,5 @@
-import 'package:bunny_dart/src/common/list_videos.dart';
-import 'package:bunny_dart/src/common/response.dart';
-import 'package:bunny_dart/src/common/video.dart';
-import 'package:bunny_dart/src/common/video_chapter.dart';
-import 'package:bunny_dart/src/common/video_meta_tag.dart';
-import 'package:bunny_dart/src/common/video_moment.dart';
-import 'package:bunny_dart/src/common/video_play_data.dart';
-import 'package:bunny_dart/src/stream/bunny_stream_collection.dart';
-import 'package:bunny_dart/src/tool/dio_proxy.dart';
-import 'package:bunny_dart/src/tool/verbose.dart';
+import 'package:bunny_dart/bunny_dart.dart';
+import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 
 class BunnyStreamLibrary {
@@ -193,6 +185,106 @@ class BunnyStreamLibrary {
       _sendError('Error: $e\nStack: $s');
       return null;
     }
+  }
+
+  /// Create a video with TUS upload support
+  /// First creates the video entry and then provides a TUS client for uploading
+  Future<BunnyTusClient?> createVideoWithTusUpload({
+    required String title,
+    required XFile videoFile,
+    String? collectionId,
+    bool jitEnabled = false,
+    String? resolutions,
+    String? codecs,
+    int? thumbnailTime,
+    bool autoGenerateSignature = true,
+    String? authorizationSignature,
+    int? expirationTimeInSeconds,
+    TusStore? store,
+    int maxChunkSize = 512 * 1024,
+    int retries = 3,
+    RetryScale retryScale = RetryScale.exponentialJitter,
+    int retryInterval = 5,
+    int parallelUploads = 3,
+  }) async {
+    try {
+      // First create the video entry to get the ID
+      final response = await dio.post(
+        _libraryMethod('/videos'),
+        opt: _optionsWithPostBody,
+        data: {
+          'title': title,
+          if (collectionId != null) 'collectionId': collectionId,
+        },
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to create video: ${response.statusCode}');
+      }
+
+      // Extract the video ID from the response
+      final String videoId = response.data!['guid'] as String;
+
+      // Create and return the TUS client for this video
+      return BunnyTusClient(
+        videoFile,
+        apiKey: _streamKey,
+        libraryId: _libraryId,
+        videoId: videoId,
+        title: title,
+        collectionId: collectionId,
+        thumbnailTime: thumbnailTime,
+        expirationTimeInSeconds: expirationTimeInSeconds,
+        autoGenerateSignature: autoGenerateSignature,
+        authorizationSignature: authorizationSignature,
+        store: store,
+        maxChunkSize: maxChunkSize,
+        retries: retries,
+        retryScale: retryScale,
+        retryInterval: retryInterval,
+        parallelUploads: parallelUploads,
+      );
+    } catch (e, s) {
+      _sendError('Error creating video for TUS upload: $e\nStack: $s');
+      return null;
+    }
+  }
+
+  /// Create a TUS client for an existing video
+  BunnyTusClient getTusClientForVideo({
+    required String videoId,
+    required String title,
+    required XFile videoFile,
+    String? collectionId,
+    int? thumbnailTime,
+    bool autoGenerateSignature = true,
+    String? authorizationSignature,
+    int? expirationTimeInSeconds,
+    TusStore? store,
+    int maxChunkSize = 512 * 1024,
+    int retries = 3,
+    RetryScale retryScale = RetryScale.exponentialJitter,
+    int retryInterval = 5,
+    int parallelUploads = 3,
+  }) {
+    return BunnyTusClient(
+      videoFile,
+      apiKey: _streamKey,
+      libraryId: _libraryId,
+      videoId: videoId,
+      title: title,
+      collectionId: collectionId,
+      thumbnailTime: thumbnailTime,
+      expirationTimeInSeconds: expirationTimeInSeconds,
+      autoGenerateSignature: autoGenerateSignature,
+      authorizationSignature: authorizationSignature,
+      store: store,
+      maxChunkSize: maxChunkSize,
+      retries: retries,
+      retryScale: retryScale,
+      retryInterval: retryInterval,
+      parallelUploads: parallelUploads,
+    );
   }
 
   /// Get Video Heatmap

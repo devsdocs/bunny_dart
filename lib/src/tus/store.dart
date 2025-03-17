@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 /// Implementations of this interface are used to lookup a
 /// [fingerprint] with the corresponding [file].
@@ -48,7 +49,12 @@ class TusMemoryStore implements TusStore {
 /// It is used by [TusClient] to resume uploads at correct %.
 class TusFileStore implements TusStore {
   /// It must receive the directory to store the upload.
-  TusFileStore(this.directory);
+  TusFileStore(this.directory) {
+    // Ensure the directory exists
+    if (!directory.existsSync()) {
+      directory.createSync(recursive: true);
+    }
+  }
 
   /// The directory where the upload  is stored.
   final Directory directory;
@@ -81,14 +87,53 @@ class TusFileStore implements TusStore {
     if (file.existsSync()) {
       file.deleteSync();
     }
-
-    if (directory.existsSync()) {
-      directory.deleteSync(recursive: true);
-    }
   }
 
   Future<File> _getFile(String fingerprint) async {
     final filePath = '${directory.absolute.path}/$fingerprint';
+    return File(filePath);
+  }
+}
+
+/// Enhanced [TusFileStore] that also stores metadata about each upload
+/// This is particularly useful for Bunny.net uploads where additional
+/// information about each upload needs to be preserved
+class BunnyTusFileStore extends TusFileStore {
+  BunnyTusFileStore(super.directory);
+
+  /// Store additional metadata for a fingerprint
+  Future<void> setMetadata(
+    String fingerprint,
+    Map<String, dynamic> metadata,
+  ) async {
+    final file = await _getMetadataFile(fingerprint);
+    await file.writeAsString(jsonEncode(metadata));
+  }
+
+  /// Get metadata for a fingerprint
+  Future<Map<String, dynamic>?> getMetadata(String fingerprint) async {
+    final file = await _getMetadataFile(fingerprint);
+    if (file.existsSync()) {
+      final data = await file.readAsString();
+      return jsonDecode(data) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  /// Remove metadata for a fingerprint
+  @override
+  Future<void> remove(String fingerprint) async {
+    await super.remove(fingerprint);
+
+    // Also remove metadata
+    final metaFile = await _getMetadataFile(fingerprint);
+    if (metaFile.existsSync()) {
+      metaFile.deleteSync();
+    }
+  }
+
+  Future<File> _getMetadataFile(String fingerprint) async {
+    final filePath = '${directory.absolute.path}/$fingerprint.meta';
     return File(filePath);
   }
 }
