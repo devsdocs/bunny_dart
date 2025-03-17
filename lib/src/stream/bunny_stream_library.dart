@@ -527,28 +527,3 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
     );
   }
 }
-
-/// Result of a video upload preparation with metadata
-class BunnyVideoUploadResult {
-  /// The ID of the created video
-  final String? videoId;
-
-  /// TUS client for performing the upload
-  final BunnyTusClient? tusClient;
-
-  /// Extracted video metadata
-  final VideoMetadataResult? metadata;
-
-  /// Error message if the operation failed
-  final String? error;
-
-  /// Whether the operation was successful
-  bool get success => error == null && videoId != null && tusClient != null;
-
-  BunnyVideoUploadResult({
-    this.videoId,
-    this.tusClient,
-    this.metadata,
-    this.error,
-  });
-}
