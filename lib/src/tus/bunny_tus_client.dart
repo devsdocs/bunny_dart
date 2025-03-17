@@ -138,6 +138,7 @@ class BunnyTusClient extends TusClient {
     Function(double, Duration)? onProgress,
     Function(TusClient, Duration?)? onStart,
     Function()? onComplete,
+    bool measureUploadSpeed = false,
   }) async {
     await upload(
       uri: Uri.parse(bunnyTusEndpoint),
@@ -146,6 +147,7 @@ class BunnyTusClient extends TusClient {
       onComplete: onComplete,
       headers: headers,
       metadata: metadata,
+      measureUploadSpeed: measureUploadSpeed,
     );
   }
 
@@ -154,7 +156,7 @@ class BunnyTusClient extends TusClient {
     Function(double, Duration)? onProgress,
     Function(TusClient, Duration?)? onStart,
     Function()? onComplete,
-    bool measureUploadSpeed = true,
+    bool measureUploadSpeed = false,
     bool forceNewUpload = false,
   }) async {
     bool createNewUpload = forceNewUpload;
@@ -203,6 +205,7 @@ class BunnyTusClient extends TusClient {
       onProgress: onProgress,
       onStart: onStart,
       onComplete: onComplete,
+      measureUploadSpeed: measureUploadSpeed,
     );
   }
 
