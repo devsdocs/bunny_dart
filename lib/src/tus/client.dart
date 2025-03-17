@@ -169,7 +169,7 @@ class TusClient extends TusClientBase {
   /// [ProtocolException] on server error
   @override
   Future<void> upload({
-    Function(double, Duration)? onProgress,
+    Function(int, int, double, Duration)? onProgress,
     Function(TusClient, Duration?)? onStart,
     Function()? onComplete,
     required Uri uri,
@@ -239,7 +239,7 @@ class TusClient extends TusClientBase {
 
   /// Handles uploading multiple chunks in parallel
   Future<void> _performParallelUpload({
-    Function(double, Duration)? onProgress,
+    Function(int, int, double, Duration)? onProgress,
     Function()? onComplete,
     required Stopwatch uploadStopwatch,
     required int totalBytes,
@@ -301,7 +301,12 @@ class TusClient extends TusClientBase {
           estimate = Duration.zero;
         }
 
-        onProgress(currentProgress.clamp(0, 100), estimate);
+        onProgress(
+          totalProgress,
+          totalBytes,
+          currentProgress.clamp(0, 100),
+          estimate,
+        );
       });
     }
 
@@ -475,7 +480,7 @@ class TusClient extends TusClientBase {
   }
 
   Future<void> _performSingleChunkUpload({
-    Function(double, Duration)? onProgress,
+    Function(int, int, double, Duration)? onProgress,
     Function()? onComplete,
     Map<String, String>? headers,
     required Stopwatch uploadStopwatch,
@@ -544,7 +549,12 @@ class TusClient extends TusClientBase {
 
               final progress =
                   (totalSent / totalBytes * 100).toPrecision(2).toDouble();
-              onProgress(progress.clamp(0, 100), estimate);
+              onProgress(
+                totalSent,
+                totalBytes,
+                progress.clamp(0, 100),
+                estimate,
+              );
               _actualRetry = 0;
             }
           },

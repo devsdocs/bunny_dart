@@ -48,7 +48,7 @@ abstract class TusClientBase {
 
   /// Starts an upload
   Future<void> upload({
-    Function(double, Duration)? onProgress,
+    Function(int, int, double, Duration)? onProgress,
     Function(TusClient, Duration?)? onStart,
     Function()? onComplete,
     required Uri uri,
