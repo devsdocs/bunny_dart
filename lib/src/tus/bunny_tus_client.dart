@@ -1,8 +1,12 @@
 import 'dart:convert';
+import 'dart:developer' show log;
+import 'dart:io';
 
+import 'package:bunny_dart/bunny_dart.dart';
 import 'package:bunny_dart/src/tus/client.dart';
 import 'package:bunny_dart/src/tus/retry_scale.dart';
 import 'package:crypto/crypto.dart';
+import 'package:dio/dio.dart';
 
 /// Specialized TUS client for Bunny.net video uploads
 class BunnyTusClient extends TusClient {
@@ -153,13 +157,42 @@ class BunnyTusClient extends TusClient {
     Function(TusClient, Duration?)? onStart,
     Function()? onComplete,
     bool measureUploadSpeed = true,
+    bool forceNewUpload = false,
   }) async {
-    // First check if the upload is resumable
-    final isResumable = await this.isResumable();
+    bool createNewUpload = forceNewUpload;
 
-    if (!isResumable) {
-      // If not resumable, create a new upload
-      await createUpload();
+    // Check if the upload is resumable
+    if (!createNewUpload) {
+      try {
+        final isResumable = await this.isResumable();
+        if (!isResumable) {
+          createNewUpload = true;
+        } else {
+          // Verify the offset can be retrieved
+          try {
+            await _getOffset();
+          } catch (e) {
+            log('Failed to retrieve offset from server: $e');
+            // If we get a 400 error when checking offset, the upload URL is probably expired
+            // In that case, we need to create a new upload
+            createNewUpload = true;
+            // Remove any stored URL since it's no longer valid
+            await store?.remove(fingerprint);
+          }
+        }
+      } catch (e) {
+        log('Error checking resume status: $e');
+        createNewUpload = true;
+      }
+    }
+
+    // Create a new upload if needed
+    if (createNewUpload) {
+      try {
+        await createUpload();
+      } catch (e) {
+        throw Exception('Failed to create upload: $e');
+      }
     }
 
     // Force sequential uploads if requested (to avoid 409 Conflict errors)
@@ -173,5 +206,80 @@ class BunnyTusClient extends TusClient {
       onStart: onStart,
       onComplete: onComplete,
     );
+  }
+
+  /// Add this function to handle checking offset specifically for Bunny.net
+  Future<int> _getOffset() async {
+    final offsetHeaders = Map<String, String>.from(headers ?? {})..addAll({
+      "Tus-Resumable": tusVersion,
+      'AuthorizationSignature':
+          autoGenerateSignature
+              ? generateAuthorizationSignature()
+              : authorizationSignature!,
+      'AuthorizationExpire': expirationTime.toString(),
+      'VideoId': videoId,
+      'LibraryId': libraryId.toString(),
+    });
+
+    final response = await getClient().headUri(
+      uploadUrl_!,
+      options: Options(headers: offsetHeaders),
+      cancelToken: cancelToken,
+    );
+
+    if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
+      throw ProtocolException(
+        "Failed to retrieve offset from Bunny.net",
+        response.statusCode,
+      );
+    }
+
+    final int? serverOffset = parseOffset(
+      response.headers.value("upload-offset"),
+    );
+
+    if (serverOffset == null) {
+      throw ProtocolException(
+        "missing upload offset in response from Bunny.net",
+      );
+    }
+
+    return serverOffset;
+  }
+
+  /// Override the base isResumable to ensure we have a fingerprint
+  /// and valid stored URL before attempting to resume
+  @override
+  Future<bool> isResumable() async {
+    try {
+      fileSize = await file.length();
+      pauseUpload_ = false;
+      uploadCancelled = false;
+
+      if (!resumingEnabled || fingerprint.isEmpty) {
+        return false;
+      }
+
+      uploadUrl_ = await store?.get(fingerprint);
+
+      if (uploadUrl_ == null) {
+        return false;
+      }
+
+      // Verify the URL doesn't contain any invalid characters
+      // that could cause problems with Bunny.net
+      final String urlStr = uploadUrl_.toString();
+      if (urlStr.contains(' ') || urlStr.contains('\n')) {
+        await store?.remove(fingerprint);
+        return false;
+      }
+
+      return true;
+    } on FileSystemException {
+      throw Exception('Cannot find file to upload');
+    } catch (e) {
+      log('Error checking if upload is resumable: $e');
+      return false;
+    }
   }
 }

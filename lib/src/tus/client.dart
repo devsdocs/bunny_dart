@@ -33,7 +33,7 @@ class TusClient extends TusClientBase {
 
   // Single reusable Dio client
   late final Dio _client;
-  final CancelToken _cancelToken = CancelToken();
+  final CancelToken cancelToken = CancelToken();
 
   // Initialize the shared client with proper settings
   void _initClient() {
@@ -60,18 +60,18 @@ class TusClient extends TusClientBase {
   int _actualRetry = 0;
   final Map<int, int> _chunkOffsets = {};
   final List<bool> _chunkComplete = [];
-  bool _uploadCancelled = false;
+  bool uploadCancelled = false;
 
   /// Create a new [upload] throwing [ProtocolException] on server error
   @override
   Future<void> createUpload() async {
     try {
-      _fileSize = await file.length();
+      fileSize = await file.length();
 
       final createHeaders = Map<String, String>.from(headers ?? {})..addAll({
         "Tus-Resumable": tusVersion,
         "Upload-Metadata": _uploadMetadata ?? "",
-        "Upload-Length": "$_fileSize",
+        "Upload-Length": "$fileSize",
       });
 
       final _url = url;
@@ -83,7 +83,7 @@ class TusClient extends TusClientBase {
       final response = await _client.postUri(
         _url,
         options: Options(headers: createHeaders),
-        cancelToken: _cancelToken,
+        cancelToken: cancelToken,
       );
 
       if (!(response.statusCode! >= 200 && response.statusCode! < 300) &&
@@ -101,8 +101,8 @@ class TusClient extends TusClientBase {
         );
       }
 
-      _uploadUrl = _parseUrl(urlStr);
-      await store?.set(_fingerprint, _uploadUrl!);
+      uploadUrl_ = _parseUrl(urlStr);
+      await store?.set(_fingerprint, uploadUrl_!);
     } on FileSystemException {
       throw Exception('Cannot find file to upload');
     }
@@ -111,17 +111,17 @@ class TusClient extends TusClientBase {
   @override
   Future<bool> isResumable() async {
     try {
-      _fileSize = await file.length();
-      _pauseUpload = false;
-      _uploadCancelled = false;
+      fileSize = await file.length();
+      pauseUpload_ = false;
+      uploadCancelled = false;
 
       if (!resumingEnabled) {
         return false;
       }
 
-      _uploadUrl = await store?.get(_fingerprint);
+      uploadUrl_ = await store?.get(_fingerprint);
 
-      if (_uploadUrl == null) {
+      if (uploadUrl_ == null) {
         return false;
       }
       return true;
@@ -193,7 +193,7 @@ class TusClient extends TusClientBase {
     _offset = await _getOffset();
 
     // Save the file size as an int in a variable to avoid having to call
-    final int totalBytes = _fileSize!;
+    final int totalBytes = fileSize!;
 
     // We start a stopwatch to calculate the upload speed
     final uploadStopwatch = Stopwatch()..start();
@@ -224,7 +224,7 @@ class TusClient extends TusClientBase {
       );
     } else {
       // Original sequential upload
-      while (!_pauseUpload && !_uploadCancelled && _offset < totalBytes) {
+      while (!pauseUpload_ && !uploadCancelled && _offset < totalBytes) {
         await _performSingleChunkUpload(
           onComplete: onComplete,
           onProgress: onProgress,
@@ -306,7 +306,7 @@ class TusClient extends TusClientBase {
     try {
       // Start uploads for each chunk
       for (int i = 0; i < effectiveChunks; i++) {
-        if (_pauseUpload || _uploadCancelled) break;
+        if (pauseUpload_ || uploadCancelled) break;
 
         activeUploads++;
         await _uploadChunk(i, totalBytes, headers)
@@ -316,14 +316,14 @@ class TusClient extends TusClientBase {
               _chunkComplete[i] = true;
 
               // Check if we need to upload more chunks
-              if (_allChunksComplete() || _pauseUpload || _uploadCancelled) {
+              if (_allChunksComplete() || pauseUpload_ || uploadCancelled) {
                 activeUploads--;
                 if (activeUploads == 0 && !completer.isCompleted) {
                   progressTimer?.cancel();
 
                   if (totalProgress >= totalBytes &&
-                      !_pauseUpload &&
-                      !_uploadCancelled) {
+                      !pauseUpload_ &&
+                      !uploadCancelled) {
                     await onCompleteUpload();
                     if (onComplete != null) onComplete();
                   }
@@ -363,7 +363,7 @@ class TusClient extends TusClientBase {
       await completer.future;
 
       // Fallback to sequential if we had conflicts with parallel upload
-      if (fallbackToSequential && !_pauseUpload && !_uploadCancelled) {
+      if (fallbackToSequential && !pauseUpload_ && !uploadCancelled) {
         log('Falling back to sequential upload due to conflicts');
         progressTimer?.cancel();
 
@@ -371,7 +371,7 @@ class TusClient extends TusClientBase {
         _offset = await _getOffset();
 
         // Continue with sequential upload
-        while (!_pauseUpload && !_uploadCancelled && _offset < totalBytes) {
+        while (!pauseUpload_ && !uploadCancelled && _offset < totalBytes) {
           await _performSingleChunkUpload(
             onComplete: onComplete,
             onProgress: onProgress,
@@ -391,7 +391,7 @@ class TusClient extends TusClientBase {
   int _findNextChunkIndex(int totalChunks) {
     final baseOffset = _offset + (totalChunks * maxChunkSize);
 
-    if (baseOffset >= _fileSize!) return -1;
+    if (baseOffset >= fileSize!) return -1;
 
     // Add a new chunk
     final newIndex = _chunkOffsets.length;
@@ -414,13 +414,13 @@ class TusClient extends TusClientBase {
     try {
       final chunkData = await _getChunkData(chunkIndex);
       final response = await _client.patchUri<ResponseBody>(
-        _uploadUrl!,
+        uploadUrl_!,
         data: chunkData,
         options: Options(
           headers: uploadHeaders,
           responseType: ResponseType.stream,
         ),
-        cancelToken: _cancelToken,
+        cancelToken: cancelToken,
       );
 
       if (response.statusCode == 409) {
@@ -440,7 +440,7 @@ class TusClient extends TusClientBase {
         );
       }
 
-      final int? serverOffset = _parseOffset(
+      final int? serverOffset = parseOffset(
         response.headers.value("upload-offset"),
       );
 
@@ -491,13 +491,13 @@ class TusClient extends TusClientBase {
 
     try {
       _response = await _client.patchUri<ResponseBody>(
-        _uploadUrl!,
+        uploadUrl_!,
         data: await _getData(),
         options: Options(
           headers: uploadHeaders,
           responseType: ResponseType.stream,
         ),
-        cancelToken: _cancelToken,
+        cancelToken: cancelToken,
       );
 
       if (_response != null) {
@@ -506,7 +506,7 @@ class TusClient extends TusClientBase {
             if (_actualRetry != 0) _actualRetry = 0;
           },
           onDone: () {
-            if (onProgress != null && !_pauseUpload && !_uploadCancelled) {
+            if (onProgress != null && !pauseUpload_ && !uploadCancelled) {
               final totalSent = min(_offset, totalBytes);
               double _workedUploadSpeed = 1.0;
 
@@ -554,7 +554,7 @@ class TusClient extends TusClientBase {
           );
         }
 
-        final int? serverOffset = _parseOffset(
+        final int? serverOffset = parseOffset(
           _response!.headers.value("upload-offset"),
         );
         if (serverOffset == null) {
@@ -568,7 +568,7 @@ class TusClient extends TusClientBase {
           );
         }
 
-        if (_offset == totalBytes && !_pauseUpload && !_uploadCancelled) {
+        if (_offset == totalBytes && !pauseUpload_ && !uploadCancelled) {
           await onCompleteUpload();
           if (onComplete != null) {
             onComplete();
@@ -590,7 +590,7 @@ class TusClient extends TusClientBase {
   @override
   Future<bool> pauseUpload() async {
     try {
-      _pauseUpload = true;
+      pauseUpload_ = true;
       if (_response != null && _response!.data is ResponseBody) {
         (_response!.data as ResponseBody).stream.timeout(Duration.zero);
       }
@@ -603,8 +603,8 @@ class TusClient extends TusClientBase {
   @override
   Future<bool> cancelUpload() async {
     try {
-      _uploadCancelled = true;
-      _cancelToken.cancel("Upload cancelled by user");
+      uploadCancelled = true;
+      cancelToken.cancel("Upload cancelled by user");
       await pauseUpload();
       await store?.remove(_fingerprint);
       return true;
@@ -632,37 +632,46 @@ class TusClient extends TusClientBase {
 
   /// Get offset from server throwing [ProtocolException] on error
   Future<int> _getOffset() async {
-    final offsetHeaders = Map<String, String>.from(headers ?? {})
-      ..addAll({"Tus-Resumable": tusVersion});
-    final response = await _client.headUri(
-      _uploadUrl!,
-      options: Options(headers: offsetHeaders),
-      cancelToken: _cancelToken,
-    );
-
-    if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
-      throw ProtocolException(
-        "Unexpected error while resuming upload",
-        response.statusCode,
+    try {
+      final offsetHeaders = Map<String, String>.from(headers ?? {})
+        ..addAll({"Tus-Resumable": tusVersion});
+      final response = await _client.headUri(
+        uploadUrl_!,
+        options: Options(headers: offsetHeaders),
+        cancelToken: cancelToken,
       );
-    }
 
-    final int? serverOffset = _parseOffset(
-      response.headers.value("upload-offset"),
-    );
-    if (serverOffset == null) {
-      throw ProtocolException(
-        "missing upload offset in response for resuming upload",
+      if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
+        log('Error retrieving upload offset: Status ${response.statusCode}');
+        throw ProtocolException(
+          "Unexpected error while resuming upload",
+          response.statusCode,
+        );
+      }
+
+      final int? serverOffset = parseOffset(
+        response.headers.value("upload-offset"),
       );
+      if (serverOffset == null) {
+        throw ProtocolException(
+          "missing upload offset in response for resuming upload",
+        );
+      }
+      return serverOffset;
+    } catch (e) {
+      // If it's already a ProtocolException, just rethrow
+      if (e is ProtocolException) rethrow;
+
+      // Otherwise wrap the error
+      throw ProtocolException("Failed to retrieve upload offset: $e", 400);
     }
-    return serverOffset;
   }
 
   /// Get data from file to upload
   Future<Uint8List> _getData() async {
     final int start = _offset;
     int end = _offset + maxChunkSize;
-    end = end > (_fileSize ?? 0) ? _fileSize ?? 0 : end;
+    end = end > (fileSize ?? 0) ? fileSize ?? 0 : end;
 
     final result = BytesBuilder();
     await for (final chunk in file.openRead(start, end)) {
@@ -679,11 +688,11 @@ class TusClient extends TusClientBase {
   Future<Uint8List> _getChunkData(int chunkIndex) async {
     final int start = _chunkOffsets[chunkIndex]!;
     int end = start + maxChunkSize;
-    end = end > (_fileSize ?? 0) ? _fileSize ?? 0 : end;
+    end = end > (fileSize ?? 0) ? fileSize ?? 0 : end;
 
     final result = BytesBuilder();
     await for (final chunk in file.openRead(start, end)) {
-      if (_pauseUpload || _uploadCancelled) break;
+      if (pauseUpload_ || uploadCancelled) break;
       result.add(chunk);
     }
 
@@ -693,7 +702,7 @@ class TusClient extends TusClientBase {
     return result.takeBytes();
   }
 
-  int? _parseOffset(String? offset) {
+  int? parseOffset(String? offset) {
     if (offset == null || offset.isEmpty) {
       return null;
     }
@@ -719,20 +728,20 @@ class TusClient extends TusClientBase {
 
   Response? _response;
 
-  int? _fileSize;
+  int? fileSize;
 
   String _fingerprint = "";
 
   String? _uploadMetadata;
 
-  Uri? _uploadUrl;
+  Uri? uploadUrl_;
 
   int _offset = 0;
 
-  bool _pauseUpload = false;
+  bool pauseUpload_ = false;
 
   /// The URI on the server for the file
-  Uri? get uploadUrl => _uploadUrl;
+  Uri? get uploadUrl => uploadUrl_;
 
   /// The fingerprint of the file being uploaded
   String get fingerprint => _fingerprint;
@@ -742,8 +751,8 @@ class TusClient extends TusClientBase {
 
   /// Cleanup resources when done
   void dispose() {
-    if (!_cancelToken.isCancelled) {
-      _cancelToken.cancel('Disposed');
+    if (!cancelToken.isCancelled) {
+      cancelToken.cancel('Disposed');
     }
   }
 }
