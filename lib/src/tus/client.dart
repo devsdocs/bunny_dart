@@ -21,11 +21,12 @@ class TusClient extends TusClientBase {
     super.retries = 0,
     super.retryScale = RetryScale.constant,
     super.retryInterval = 0,
-    super.parallelUploads = 1,
+    int parallelUploads = 1,
     super.connectionTimeout = const Duration(seconds: 30),
     super.receiveTimeout = const Duration(seconds: 30),
     super.enableCompression = true,
   }) {
+    super.parallelUploads = parallelUploads;
     _fingerprint = generateFingerprint() ?? "";
     _initClient();
   }
@@ -247,6 +248,7 @@ class TusClient extends TusClientBase {
     int totalProgress = _offset;
     final completer = Completer<void>();
     var activeUploads = 0;
+    bool fallbackToSequential = false;
 
     // Prep chunks
     final int effectiveChunks = min(
@@ -270,65 +272,118 @@ class TusClient extends TusClientBase {
         if (uploadSpeed != null) {
           _workedUploadSpeed = uploadSpeed! * 1000000;
         } else {
+          // Calculate a safe upload speed with guard against division by zero
+          final elapsedMs = uploadStopwatch.elapsedMilliseconds;
+          if (elapsedMs > 0) {
+            _workedUploadSpeed = totalProgress / elapsedMs;
+          }
+          // Ensure we have a positive value
           _workedUploadSpeed =
-              totalProgress / uploadStopwatch.elapsedMilliseconds;
+              _workedUploadSpeed.isFinite && _workedUploadSpeed > 0
+                  ? _workedUploadSpeed
+                  : 1.0;
         }
 
         final remainData = totalBytes - totalProgress;
-        final estimate = Duration(
-          seconds: (remainData / _workedUploadSpeed).round(),
-        );
+
+        // Calculate a safe estimate with guards against invalid values
+        Duration estimate;
+        try {
+          final seconds = (remainData / _workedUploadSpeed).round();
+          // Ensure we have a valid, non-negative duration
+          estimate = Duration(
+            seconds: seconds.isFinite && seconds >= 0 ? seconds : 0,
+          );
+        } catch (e) {
+          // Fallback if any calculation error occurs
+          estimate = Duration.zero;
+        }
 
         onProgress(currentProgress.clamp(0, 100), estimate);
       });
     }
 
-    // Start uploads for each chunk
-    for (int i = 0; i < effectiveChunks; i++) {
-      if (_pauseUpload || _uploadCancelled) break;
+    try {
+      // Start uploads for each chunk
+      for (int i = 0; i < effectiveChunks; i++) {
+        if (_pauseUpload || _uploadCancelled) break;
 
-      activeUploads++;
-      await _uploadChunk(i, totalBytes, headers)
-          .then((_) async {
-            // Update progress
-            totalProgress += maxChunkSize;
-            _chunkComplete[i] = true;
+        activeUploads++;
+        await _uploadChunk(i, totalBytes, headers)
+            .then((_) async {
+              // Update progress
+              totalProgress += maxChunkSize;
+              _chunkComplete[i] = true;
 
-            // Check if we need to upload more chunks
-            if (_allChunksComplete() || _pauseUpload || _uploadCancelled) {
-              activeUploads--;
-              if (activeUploads == 0 && !completer.isCompleted) {
-                progressTimer?.cancel();
-
-                if (totalProgress >= totalBytes &&
-                    !_pauseUpload &&
-                    !_uploadCancelled) {
-                  onCompleteUpload();
-                  if (onComplete != null) onComplete();
-                }
-                completer.complete();
-              }
-            } else {
-              // Find next chunk to upload
-              final nextChunkIndex = _findNextChunkIndex(effectiveChunks);
-              if (nextChunkIndex != -1) {
-                await _uploadChunk(
-                  nextChunkIndex,
-                  totalBytes,
-                  headers,
-                ).then((_) => activeUploads--);
-              } else {
+              // Check if we need to upload more chunks
+              if (_allChunksComplete() || _pauseUpload || _uploadCancelled) {
                 activeUploads--;
-              }
-            }
-          })
-          .catchError((e) {
-            activeUploads--;
-            if (!completer.isCompleted) completer.completeError(e as Object);
-          });
-    }
+                if (activeUploads == 0 && !completer.isCompleted) {
+                  progressTimer?.cancel();
 
-    return completer.future;
+                  if (totalProgress >= totalBytes &&
+                      !_pauseUpload &&
+                      !_uploadCancelled) {
+                    await onCompleteUpload();
+                    if (onComplete != null) onComplete();
+                  }
+                  completer.complete();
+                }
+              } else {
+                // Find next chunk to upload
+                final nextChunkIndex = _findNextChunkIndex(effectiveChunks);
+                if (nextChunkIndex != -1) {
+                  await _uploadChunk(
+                    nextChunkIndex,
+                    totalBytes,
+                    headers,
+                  ).then((_) => activeUploads--);
+                } else {
+                  activeUploads--;
+                }
+              }
+            })
+            .catchError((e) {
+              activeUploads--;
+              if (e is ProtocolException && e.code == 409) {
+                // 409 conflict - try sequential upload instead
+                fallbackToSequential = true;
+              }
+              if (!completer.isCompleted) {
+                if (fallbackToSequential) {
+                  // Don't propagate the error, let it fall through to fallback
+                  completer.complete();
+                } else {
+                  completer.completeError(e as Object);
+                }
+              }
+            });
+      }
+
+      await completer.future;
+
+      // Fallback to sequential if we had conflicts with parallel upload
+      if (fallbackToSequential && !_pauseUpload && !_uploadCancelled) {
+        log('Falling back to sequential upload due to conflicts');
+        progressTimer?.cancel();
+
+        // Reset offset to last server-confirmed offset
+        _offset = await _getOffset();
+
+        // Continue with sequential upload
+        while (!_pauseUpload && !_uploadCancelled && _offset < totalBytes) {
+          await _performSingleChunkUpload(
+            onComplete: onComplete,
+            onProgress: onProgress,
+            headers: headers,
+            uploadStopwatch: uploadStopwatch,
+            totalBytes: totalBytes,
+          );
+        }
+      }
+    } finally {
+      progressTimer?.cancel();
+    }
   }
 
   bool _allChunksComplete() => _chunkComplete.every((complete) => complete);
@@ -368,7 +423,17 @@ class TusClient extends TusClientBase {
         cancelToken: _cancelToken,
       );
 
-      if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
+      if (response.statusCode == 409) {
+        // 409 Conflict - Need to resynchronize with server
+        log('Conflict detected for chunk $chunkIndex, re-syncing with server');
+        // Get current server offset
+        final serverOffset = await _getOffset();
+        _chunkOffsets[chunkIndex] = serverOffset;
+        throw ProtocolException(
+          "Conflict while uploading chunk $chunkIndex - resynchronizing",
+          response.statusCode,
+        );
+      } else if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
         throw ProtocolException(
           "Error while uploading chunk $chunkIndex",
           response.statusCode,
@@ -384,8 +449,17 @@ class TusClient extends TusClientBase {
           "Response to PATCH request contains no or invalid Upload-Offset header",
         );
       }
+
+      // Update client offset with server offset to maintain sync
+      _chunkOffsets[chunkIndex] = serverOffset;
     } catch (e) {
-      if (_actualRetry >= retries) rethrow;
+      if (_actualRetry >= retries) {
+        // If we've exhausted retries with parallel upload, throw to allow fallback
+        if (e is ProtocolException && e.code == 409) {
+          rethrow;
+        }
+        rethrow;
+      }
 
       final waitInterval = retryScale.getInterval(_actualRetry, retryInterval);
       _actualRetry += 1;
@@ -439,14 +513,32 @@ class TusClient extends TusClientBase {
               if (uploadSpeed != null) {
                 _workedUploadSpeed = uploadSpeed! * 1000000;
               } else {
+                // Calculate a safe upload speed with guard against division by zero
+                final elapsedMs = uploadStopwatch.elapsedMilliseconds;
+                if (elapsedMs > 0) {
+                  _workedUploadSpeed = totalSent / elapsedMs;
+                }
+                // Ensure we have a positive value
                 _workedUploadSpeed =
-                    totalSent / uploadStopwatch.elapsedMilliseconds;
+                    _workedUploadSpeed.isFinite && _workedUploadSpeed > 0
+                        ? _workedUploadSpeed
+                        : 1.0;
               }
 
               final remainData = totalBytes - totalSent;
-              final estimate = Duration(
-                seconds: (remainData / _workedUploadSpeed).round(),
-              );
+
+              // Calculate a safe estimate with guards against invalid values
+              Duration estimate;
+              try {
+                final seconds = (remainData / _workedUploadSpeed).round();
+                // Ensure we have a valid, non-negative duration
+                estimate = Duration(
+                  seconds: seconds.isFinite && seconds >= 0 ? seconds : 0,
+                );
+              } catch (e) {
+                // Fallback if any calculation error occurs
+                estimate = Duration.zero;
+              }
 
               final progress = totalSent / totalBytes * 100;
               onProgress(progress.clamp(0, 100), estimate);

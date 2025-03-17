@@ -445,6 +445,7 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
     RetryScale retryScale = RetryScale.exponentialJitter,
     int retryInterval = 5,
     int parallelUploads = 3,
+    bool forceSequential = false,
   }) async {
     try {
       // First create the video entry to get the ID
@@ -482,6 +483,7 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
         retryScale: retryScale,
         retryInterval: retryInterval,
         parallelUploads: parallelUploads,
+        forceSequential: forceSequential,
       );
     } catch (e, s) {
       _sendError('Error creating video for TUS upload: $e\nStack: $s');

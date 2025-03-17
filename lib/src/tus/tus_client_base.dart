@@ -11,6 +11,14 @@ abstract class TusClientBase {
   /// support this version, too.
   final tusVersion = "1.0.0";
 
+  int _parallelUploads = 1;
+
+  set parallelUploads(int value) {
+    _parallelUploads = value;
+  }
+
+  int get parallelUploads => _parallelUploads;
+
   /// The tus server Uri
   Uri? url;
 
@@ -32,11 +40,11 @@ abstract class TusClientBase {
     this.retries = 0,
     this.retryScale = RetryScale.constant,
     this.retryInterval = 0,
-    this.parallelUploads = 1,
+    int parallelUploads = 1,
     this.connectionTimeout = const Duration(seconds: 30),
     this.receiveTimeout = const Duration(seconds: 30),
     this.enableCompression = true,
-  });
+  }) : _parallelUploads = parallelUploads;
 
   /// Create a new upload URL
   Future<void> createUpload();
@@ -110,7 +118,7 @@ abstract class TusClientBase {
   final RetryScale retryScale;
 
   /// The number of parallel chunk uploads (defaults to 1 for sequential uploads)
-  final int parallelUploads;
+  // final int parallelUploads;
 
   /// Connection timeout for network requests
   final Duration connectionTimeout;

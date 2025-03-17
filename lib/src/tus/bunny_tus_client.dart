@@ -36,6 +36,10 @@ class BunnyTusClient extends TusClient {
   /// The pre-generated authorization signature (if not auto-generating)
   final String? authorizationSignature;
 
+  /// Whether to force sequential upload instead of parallel
+  /// Set to true if you experience 409 Conflict errors with parallel uploads
+  final bool forceSequential;
+
   BunnyTusClient(
     super.file, {
     super.store,
@@ -55,6 +59,7 @@ class BunnyTusClient extends TusClient {
     int? expirationTimeInSeconds,
     this.autoGenerateSignature = true,
     this.authorizationSignature,
+    this.forceSequential = false,
   }) : expirationTime =
            expirationTimeInSeconds ??
            (DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600) {
@@ -155,6 +160,11 @@ class BunnyTusClient extends TusClient {
     if (!isResumable) {
       // If not resumable, create a new upload
       await createUpload();
+    }
+
+    // Force sequential uploads if requested (to avoid 409 Conflict errors)
+    if (forceSequential) {
+      super.parallelUploads = 1;
     }
 
     // Start the upload
