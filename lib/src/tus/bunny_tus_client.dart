@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' show log;
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:bunny_dart/bunny_dart.dart';
 import 'package:crypto/crypto.dart';
@@ -42,6 +43,12 @@ class BunnyTusClient extends TusClient {
   /// Set to true if you experience 409 Conflict errors with parallel uploads
   final bool forceSequential;
 
+  /// Checksum algorithm to use for upload integrity verification
+  final String? checksumAlgorithm;
+
+  /// Tracks when this upload will expire, if server provides expiration info
+  DateTime? _uploadExpires;
+
   BunnyTusClient(
     super.file, {
     super.store,
@@ -62,6 +69,7 @@ class BunnyTusClient extends TusClient {
     this.autoGenerateSignature = true,
     this.authorizationSignature,
     this.forceSequential = false,
+    this.checksumAlgorithm,
   }) : expirationTime =
            expirationTimeInSeconds ??
            (DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600) {
@@ -111,6 +119,19 @@ class BunnyTusClient extends TusClient {
       if (thumbnailTime != null) 'thumbnailTime': thumbnailTime.toString(),
     };
 
+    // If we're storing metadata for future use, save it now
+    if (store is BunnyTusFileStore) {
+      final metadataStore = store! as BunnyTusFileStore;
+      await metadataStore.setMetadata(fingerprint, {
+        'videoId': videoId,
+        'libraryId': libraryId,
+        'title': title,
+        'expirationTime': expirationTime,
+        if (collectionId != null) 'collectionId': collectionId,
+        if (thumbnailTime != null) 'thumbnailTime': thumbnailTime,
+      });
+    }
+
     await super.createUpload();
   }
 
@@ -156,6 +177,41 @@ class BunnyTusClient extends TusClient {
     );
   }
 
+  /// Check if the upload is expired
+  bool _isUploadExpired() {
+    if (_uploadExpires == null) return false;
+    return DateTime.now().isAfter(_uploadExpires!);
+  }
+
+  /// Parse the Upload-Expires header
+  void _parseUploadExpires(Map<String, List<String>> headers) {
+    final expiresHeader = headers['upload-expires']?.first;
+    if (expiresHeader != null) {
+      try {
+        // Parse RFC 7231 datetime format
+        _uploadExpires = DateTime.parse(expiresHeader);
+        log('Upload will expire at: $_uploadExpires');
+      } catch (e) {
+        log('Failed to parse Upload-Expires header: $e');
+      }
+    }
+  }
+
+  /// Generate checksum for the given data if a checksum algorithm is specified
+  String? _generateChecksum(Uint8List data) {
+    if (checksumAlgorithm == null) return null;
+
+    switch (checksumAlgorithm!.toLowerCase()) {
+      case 'sha1':
+        return base64.encode(sha1.convert(data).bytes);
+      case 'md5':
+        return base64.encode(md5.convert(data).bytes);
+      default:
+        log('Unsupported checksum algorithm: $checksumAlgorithm');
+        return null;
+    }
+  }
+
   /// Helper method to create and start upload in a single call
   Future<void> startUpload({
     Function(int, int, double, Duration)? onProgress,
@@ -170,7 +226,8 @@ class BunnyTusClient extends TusClient {
     if (!createNewUpload) {
       try {
         final isResumable = await this.isResumable();
-        if (!isResumable) {
+        if (!isResumable || _isUploadExpired()) {
+          log('Upload not resumable or expired, creating new upload');
           createNewUpload = true;
         } else {
           // Verify the offset can be retrieved
@@ -256,6 +313,8 @@ class BunnyTusClient extends TusClient {
         options: Options(
           headers: offsetHeaders,
           validateStatus: (status) => true, // Handle status codes manually
+          receiveTimeout: receiveTimeout,
+          sendTimeout: connectionTimeout,
         ),
         cancelToken: cancelToken,
       );
@@ -277,6 +336,9 @@ class BunnyTusClient extends TusClient {
           response.statusCode,
         );
       }
+
+      // Parse Upload-Expires header if present
+      _parseUploadExpires(response.headers.map);
 
       final int? serverOffset = parseOffset(
         response.headers.value("upload-offset"),
@@ -328,6 +390,27 @@ class BunnyTusClient extends TusClient {
         return false;
       }
 
+      // Check if we have saved metadata about expiration
+      if (store is BunnyTusFileStore) {
+        final metadataStore = store! as BunnyTusFileStore;
+        final metadata = await metadataStore.getMetadata(fingerprint);
+
+        if (metadata != null && metadata.containsKey('uploadExpires')) {
+          try {
+            _uploadExpires = DateTime.parse(
+              metadata['uploadExpires'] as String,
+            );
+            if (_isUploadExpired()) {
+              log('Stored upload is expired based on metadata');
+              await store?.remove(fingerprint);
+              return false;
+            }
+          } catch (e) {
+            log('Error parsing stored expiration time: $e');
+          }
+        }
+      }
+
       return true;
     } on FileSystemException {
       throw Exception('Cannot find file to upload');
@@ -335,5 +418,75 @@ class BunnyTusClient extends TusClient {
       log('Error checking if upload is resumable: $e');
       return false;
     }
+  }
+
+  /// Implement the termination extension to delete uploads
+  Future<bool> terminateUpload() async {
+    if (uploadUrl_ == null) {
+      log('No upload URL to terminate');
+      return false;
+    }
+
+    try {
+      final terminateHeaders = Map<String, String>.from(getBunnyAuthHeaders())
+        ..addAll({"Tus-Resumable": tusVersion});
+
+      final response = await getClient().deleteUri(
+        uploadUrl_!,
+        options: Options(
+          headers: terminateHeaders,
+          validateStatus: (status) => true,
+        ),
+        cancelToken: cancelToken,
+      );
+
+      if (response.statusCode == 204) {
+        await store?.remove(fingerprint);
+        return true;
+      } else {
+        log('Failed to terminate upload: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      log('Error terminating upload: $e');
+      return false;
+    }
+  }
+
+  /// Override to add checksum header when uploading chunks
+  @override
+  Future<Uint8List> getData() async {
+    final data = await super.getData();
+
+    // If checksumAlgorithm is specified, calculate and add the checksum header
+    final checksum = _generateChecksum(data);
+    if (checksum != null && checksumAlgorithm != null) {
+      final currentHeaders = Map<String, String>.from(headers ?? {});
+      currentHeaders['Upload-Checksum'] =
+          '${checksumAlgorithm!.toLowerCase()} $checksum';
+      headers = currentHeaders;
+    }
+
+    return data;
+  }
+
+  /// Override onCompleteUpload to save additional metadata about the completed upload
+  @override
+  Future<void> onCompleteUpload() async {
+    // Update metadata to mark upload as complete
+    if (store is BunnyTusFileStore) {
+      final metadataStore = store! as BunnyTusFileStore;
+      final metadata = await metadataStore.getMetadata(fingerprint) ?? {};
+      metadata['completed'] = true;
+      metadata['completedAt'] = DateTime.now().toIso8601String();
+
+      try {
+        await metadataStore.setMetadata(fingerprint, metadata);
+      } catch (e) {
+        log('Error updating metadata on completion: $e');
+      }
+    }
+
+    await super.onCompleteUpload();
   }
 }

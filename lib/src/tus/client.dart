@@ -499,7 +499,7 @@ class TusClient extends TusClientBase {
     try {
       _response = await _client.patchUri<ResponseBody>(
         uploadUrl_!,
-        data: await _getData(),
+        data: await getData(),
         options: Options(
           headers: uploadHeaders,
           responseType: ResponseType.stream,
@@ -681,7 +681,7 @@ class TusClient extends TusClientBase {
   }
 
   /// Get data from file to upload
-  Future<Uint8List> _getData() async {
+  Future<Uint8List> getData() async {
     final int start = _offset;
     int end = _offset + maxChunkSize;
     end = end > (fileSize ?? 0) ? fileSize ?? 0 : end;
