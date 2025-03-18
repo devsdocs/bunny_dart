@@ -482,7 +482,6 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
         retryScale: retryScale,
         retryInterval: retryInterval,
         parallelUploads: parallelUploads,
-        forceSequential: forceSequential,
       );
     } catch (e, s) {
       _sendError('Error creating video for TUS upload: $e\nStack: $s');

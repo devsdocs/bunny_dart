@@ -11,8 +11,6 @@ import 'package:bunny_dart/src/tool/double.dart';
 import 'package:dio/dio.dart';
 import 'package:speed_test_dart/speed_test_dart.dart';
 
-enum ConcatType { partial, finalUpload }
-
 /// This class is used for creating or resuming uploads.
 class TusClient extends TusClientBase {
   bool allowParallelFallback = true;
@@ -42,7 +40,6 @@ class TusClient extends TusClientBase {
   // Track if a TUS upload is expired
   DateTime? _uploadExpires;
 
-  ConcatType? concatType;
   List<Uri>? partialUploadUrls;
 
   // Initialize the shared client with proper settings
@@ -85,25 +82,6 @@ class TusClient extends TusClientBase {
         // Add Cache-Control header as per TUS spec
         "Cache-Control": "no-store",
       });
-
-      if (concatType != null) {
-        if (concatType == ConcatType.partial) {
-          createHeaders['Upload-Concat'] = 'partial';
-        } else if (concatType == ConcatType.finalUpload &&
-            partialUploadUrls != null) {
-          final urls = partialUploadUrls!
-              .map(
-                (u) =>
-                    u.pathSegments.isNotEmpty
-                        ? '/${u.pathSegments.join('/')}'
-                        : u.toString(),
-              )
-              .join(' ');
-          createHeaders['Upload-Concat'] = 'final;$urls';
-          // Omit Upload-Length as per spec for final upload
-          createHeaders.remove('Upload-Length');
-        }
-      }
 
       final _url = url;
 

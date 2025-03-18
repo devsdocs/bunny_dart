@@ -39,10 +39,6 @@ class BunnyTusClient extends TusClient {
   /// The pre-generated authorization signature (if not auto-generating)
   final String? authorizationSignature;
 
-  /// Whether to force sequential upload instead of parallel
-  /// Set to true if you experience 409 Conflict errors with parallel uploads
-  final bool forceSequential;
-
   /// Checksum algorithm to use for upload integrity verification
   final String? checksumAlgorithm;
 
@@ -65,7 +61,7 @@ class BunnyTusClient extends TusClient {
     int? expirationTimeInSeconds,
     this.autoGenerateSignature = true,
     this.authorizationSignature,
-    this.forceSequential = false,
+
     this.checksumAlgorithm,
   }) : expirationTime =
            expirationTimeInSeconds ??
@@ -94,9 +90,6 @@ class BunnyTusClient extends TusClient {
 
   /// Get the required Bunny.net authorization headers
   Map<String, String> getBunnyAuthHeaders() {
-    // Regenerate authorization for each request to avoid expiration issues
-    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-
     return {
       'AuthorizationSignature':
           autoGenerateSignature
@@ -246,11 +239,6 @@ class BunnyTusClient extends TusClient {
         print('Failed to create upload: $e');
         throw Exception('Failed to create upload: $e');
       }
-    }
-
-    // Force sequential uploads if requested (to avoid 409 Conflict errors)
-    if (forceSequential) {
-      super.parallelUploads = 1;
     }
 
     // Start the upload
