@@ -1,5 +1,3 @@
-// ignore_for_file: avoid_print
-
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -164,7 +162,6 @@ class BunnyTusClient extends TusClient {
       case 'md5':
         return base64.encode(md5.convert(data).bytes);
       default:
-        print('Unsupported checksum algorithm: $checksumAlgorithm');
         return null;
     }
   }
@@ -184,19 +181,13 @@ class BunnyTusClient extends TusClient {
       try {
         final isResumable = await this.isResumable();
         if (!isResumable) {
-          print('Upload not resumable, creating new upload');
           createNewUpload = true;
         } else {
           // Verify the offset can be retrieved
           try {
             await _getOffset();
           } catch (e) {
-            print('Failed to retrieve offset from server: $e');
-            if (e.toString().contains('400')) {
-              print(
-                'Got 400 error checking offset, likely authorization expired',
-              );
-            }
+            if (e.toString().contains('400')) {}
             // If we get an error when checking offset, the upload URL is likely expired
             // In that case, we need to create a new upload
             createNewUpload = true;
@@ -205,7 +196,6 @@ class BunnyTusClient extends TusClient {
           }
         }
       } catch (e) {
-        print('Error checking resume status: $e');
         createNewUpload = true;
       }
     }
@@ -213,12 +203,10 @@ class BunnyTusClient extends TusClient {
     // Create a new upload if needed
     if (createNewUpload) {
       try {
-        print('Creating new upload for ${file.path}');
         // Make sure to clean up any existing store entry
         await store?.remove(fingerprint);
         await createUpload();
       } catch (e) {
-        print('Failed to create upload: $e');
         throw Exception('Failed to create upload: $e');
       }
     }
@@ -232,11 +220,8 @@ class BunnyTusClient extends TusClient {
         measureUploadSpeed: measureUploadSpeed,
       );
     } catch (e) {
-      print('Error during upload: $e');
-
       // If we get a 400 error, try once more with a fresh upload
       if (e.toString().contains('400') && !forceNewUpload) {
-        print('Got 400 error during upload, retrying with a fresh upload');
         await store?.remove(fingerprint);
         await createUpload();
 
@@ -262,9 +247,6 @@ class BunnyTusClient extends TusClient {
       throw ProtocolException("No upload URL available to check offset");
     }
 
-    print('Checking offset with Bunny.net: $uploadUrl_');
-    print('Using headers: $offsetHeaders');
-
     // Make sure connection is properly closed after error
     Response? response;
     try {
@@ -278,9 +260,6 @@ class BunnyTusClient extends TusClient {
         ),
         cancelToken: cancelToken,
       );
-
-      print('Offset response status: ${response.statusCode}');
-      print('Offset response headers: ${response.headers.map}');
 
       // Check HTTP status code as per TUS spec
       if (response.statusCode == 404 ||
@@ -311,14 +290,12 @@ class BunnyTusClient extends TusClient {
         );
       }
 
-      print('Server reported offset: $serverOffset');
       return serverOffset;
     } catch (e) {
       if (e is ProtocolException) {
         rethrow;
       }
       // Convert any other error into a ProtocolException
-      print('Error getting offset: $e');
       throw ProtocolException("Error getting offset: $e", response?.statusCode);
     }
   }
@@ -356,9 +333,7 @@ class BunnyTusClient extends TusClient {
 
       try {
         await metadataStore.setMetadata(fingerprint, metadata);
-      } catch (e) {
-        print('Error updating metadata on completion: $e');
-      }
+      } catch (e) {}
     }
 
     await super.onCompleteUpload();

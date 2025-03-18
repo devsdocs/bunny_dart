@@ -1,5 +1,3 @@
-// ignore_for_file: parameter_assignments, avoid_dynamic_calls, no_leading_underscores_for_local_identifiers, avoid_print
-
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' show min;
@@ -79,14 +77,14 @@ class TusClient extends TusClientBase {
         "Cache-Control": "no-store",
       });
 
-      final _url = url;
+      final url_ = url;
 
-      if (_url == null) {
+      if (url_ == null) {
         throw ProtocolException('Error in request, URL is incorrect');
       }
 
       final response = await _client.postUri(
-        _url,
+        url_,
         options: Options(headers: createHeaders),
         cancelToken: cancelToken,
       );
@@ -133,7 +131,6 @@ class TusClient extends TusClientBase {
       // Basic URL validation
       final urlStr = uploadUrl_.toString();
       if (urlStr.isEmpty || !urlStr.startsWith('http')) {
-        print('Invalid URL found: $urlStr');
         await store?.remove(_fingerprint);
         return false;
       }
@@ -142,7 +139,6 @@ class TusClient extends TusClientBase {
     } on FileSystemException {
       throw Exception('Cannot find file to upload');
     } catch (e) {
-      print('Error in isResumable: $e');
       return false;
     }
   }
@@ -193,8 +189,7 @@ class TusClient extends TusClientBase {
   }) async {
     setUploadData(uri, headers, metadata);
 
-    final _isResumable = await isResumable();
-    print('Upload resumable: $_isResumable');
+    final isResumable_ = await isResumable();
 
     if (measureUploadSpeed) {
       await setUploadTestServers();
@@ -202,23 +197,16 @@ class TusClient extends TusClientBase {
     }
 
     // Create a new upload if not resumable
-    if (!_isResumable) {
-      print('Creating new upload - not resumable');
+    if (!isResumable_) {
       await createUpload();
-    } else {
-      print('Attempting to resume upload from stored URL: $uploadUrl_');
-    }
+    } else {}
 
     // Attempt to get offset from server with error handling
     try {
       _offset = await _getOffset();
-      print('Starting upload at offset: $_offset');
     } catch (e) {
       if (e is ProtocolException &&
           (e.code == 404 || e.code == 410 || e.code == 403 || e.code == 400)) {
-        print(
-          'Failed to get offset (${e.code}), creating new upload: ${e.message}',
-        );
         // Clean up the old upload
         await store?.remove(_fingerprint);
         // Create a new upload and try again
@@ -239,9 +227,9 @@ class TusClient extends TusClientBase {
     if (onStart != null) {
       Duration? estimate;
       if (uploadSpeed != null) {
-        final _workedUploadSpeed = uploadSpeed! * 1000000;
+        final workedUploadSpeed_ = uploadSpeed! * 1000000;
 
-        estimate = Duration(seconds: (totalBytes / _workedUploadSpeed).round());
+        estimate = Duration(seconds: (totalBytes / workedUploadSpeed_).round());
       }
       // The time remaining to finish the upload
       onStart(this, estimate);
@@ -281,10 +269,6 @@ class TusClient extends TusClientBase {
     });
 
     try {
-      print(
-        'Uploading chunk from offset $_offset with headers: $uploadHeaders',
-      );
-
       _response = await _client.patchUri<ResponseBody>(
         uploadUrl_!,
         data: await getData(),
@@ -303,20 +287,20 @@ class TusClient extends TusClientBase {
           onDone: () {
             if (onProgress != null && !pauseUpload_ && !uploadCancelled) {
               final totalSent = min(_offset, totalBytes);
-              double _workedUploadSpeed = 1.0;
+              double workedUploadSpeed_ = 1.0;
 
               if (uploadSpeed != null) {
-                _workedUploadSpeed = uploadSpeed! * 1000000;
+                workedUploadSpeed_ = uploadSpeed! * 1000000;
               } else {
                 // Calculate a safe upload speed with guard against division by zero
                 final elapsedMs = uploadStopwatch.elapsedMilliseconds;
                 if (elapsedMs > 0) {
-                  _workedUploadSpeed = totalSent / elapsedMs;
+                  workedUploadSpeed_ = totalSent / elapsedMs;
                 }
                 // Ensure we have a positive value
-                _workedUploadSpeed =
-                    _workedUploadSpeed.isFinite && _workedUploadSpeed > 0
-                        ? _workedUploadSpeed
+                workedUploadSpeed_ =
+                    workedUploadSpeed_.isFinite && workedUploadSpeed_ > 0
+                        ? workedUploadSpeed_
                         : 1.0;
               }
 
@@ -325,7 +309,7 @@ class TusClient extends TusClientBase {
               // Calculate a safe estimate with guards against invalid values
               Duration estimate;
               try {
-                final seconds = (remainData / _workedUploadSpeed).round();
+                final seconds = (remainData / workedUploadSpeed_).round();
                 // Ensure we have a valid, non-negative duration
                 estimate = Duration(
                   seconds: seconds.isFinite && seconds >= 0 ? seconds : 0,
@@ -349,7 +333,6 @@ class TusClient extends TusClientBase {
         );
 
         if (_response!.statusCode == 409) {
-          print('Got 409 conflict. Re-syncing offset...');
           final offset = await _getOffset();
           _offset = offset;
           throw ProtocolException(
@@ -357,7 +340,6 @@ class TusClient extends TusClientBase {
             409,
           );
         } else if (_response!.statusCode == 400) {
-          print('Got 400 error during chunk upload. Re-syncing offset...');
           final offset = await _getOffset();
           _offset = offset;
           throw ProtocolException(
@@ -397,18 +379,11 @@ class TusClient extends TusClientBase {
       }
     } catch (e) {
       // Better error logging and differentiation
-      if (e.toString().contains('400')) {
-        print(
-          'Got 400 error during chunk upload, might need to recreate upload',
-        );
-      }
+      if (e.toString().contains('400')) {}
 
       if (_actualRetry >= retries) rethrow;
       final waitInterval = retryScale.getInterval(_actualRetry, retryInterval);
       _actualRetry += 1;
-      print(
-        'Failed to upload, retry: $_actualRetry, interval: $waitInterval, error: $e',
-      );
       await Future.delayed(waitInterval);
     }
   }
@@ -472,10 +447,7 @@ class TusClient extends TusClientBase {
         "Cache-Control": "no-store",
       });
 
-      print('Getting offset for upload URL: $uploadUrl_');
-
       // Add debugging for headers
-      print('Request headers for offset check: $offsetHeaders');
 
       final response = await _client.headUri(
         uploadUrl_!,
@@ -488,19 +460,11 @@ class TusClient extends TusClientBase {
         cancelToken: cancelToken,
       );
 
-      print(
-        'Offset check response: ${response.statusCode} - ${response.statusMessage}',
-      );
-      print('Response headers: ${response.headers.map}');
-
       // Handle status codes as per TUS spec
       if (response.statusCode == 404 ||
           response.statusCode == 410 ||
           response.statusCode == 403) {
         // Resource no longer exists
-        print(
-          'Upload resource no longer available: HTTP ${response.statusCode}',
-        );
         await store?.remove(_fingerprint);
         throw ProtocolException(
           "Upload resource no longer available",
@@ -508,13 +472,11 @@ class TusClient extends TusClientBase {
         );
       } else if (response.statusCode == 400) {
         // Bad request - could be expired auth or other issues
-        print('400 Bad Request when checking offset');
         throw ProtocolException(
           "Bad request when retrieving offset - auth may be expired",
           response.statusCode,
         );
       } else if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
-        print('Error retrieving upload offset: Status ${response.statusCode}');
         throw ProtocolException(
           "Unexpected error while resuming upload",
           response.statusCode,
@@ -529,10 +491,8 @@ class TusClient extends TusClientBase {
           "missing upload offset in response for resuming upload",
         );
       }
-      print('Server reported offset: $serverOffset');
       return serverOffset;
     } on DioException catch (e) {
-      print('Network error getting offset: ${e.message}');
       throw ProtocolException(
         "Network error getting offset: ${e.message}",
         e.response?.statusCode ?? 0,
@@ -542,7 +502,6 @@ class TusClient extends TusClientBase {
       if (e is ProtocolException) rethrow;
 
       // Otherwise wrap the error
-      print('Error getting offset: $e');
       // Instead of always returning 400, use 0 for unknown
       throw ProtocolException("Failed to retrieve upload offset: $e", 0);
     }
@@ -568,7 +527,6 @@ class TusClient extends TusClientBase {
   /// Implement the termination extension for the TUS protocol
   Future<bool> terminateUpload() async {
     if (uploadUrl_ == null) {
-      print('No upload URL to terminate');
       return false;
     }
 
@@ -589,30 +547,30 @@ class TusClient extends TusClientBase {
         await store?.remove(_fingerprint);
         return true;
       } else {
-        print('Failed to terminate upload: ${response.statusCode}');
         return false;
       }
     } catch (e) {
-      print('Error terminating upload: $e');
       return false;
     }
   }
 
   int? parseOffset(String? offset) {
-    if (offset == null || offset.isEmpty) {
+    String? offset_ = offset;
+    if (offset_ == null || offset_.isEmpty) {
       return null;
     }
-    if (offset.contains(",")) {
-      offset = offset.substring(0, offset.indexOf(","));
+    if (offset_.contains(",")) {
+      offset_ = offset_.substring(0, offset_.indexOf(","));
     }
-    return int.tryParse(offset);
+    return int.tryParse(offset_);
   }
 
   Uri _parseUrl(String urlStr) {
-    if (urlStr.contains(",")) {
-      urlStr = urlStr.substring(0, urlStr.indexOf(","));
+    String urlStr_ = urlStr;
+    if (urlStr_.contains(",")) {
+      urlStr_ = urlStr_.substring(0, urlStr_.indexOf(","));
     }
-    Uri uploadUrl = Uri.parse(urlStr);
+    Uri uploadUrl = Uri.parse(urlStr_);
     if (uploadUrl.host.isEmpty) {
       uploadUrl = uploadUrl.replace(host: url?.host, port: url?.port);
     }
