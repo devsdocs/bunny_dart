@@ -85,10 +85,9 @@ class BunnyTusClient extends TusClient {
     return digest.toString();
   }
 
-  @override
-  Future<void> createUpload() async {
-    // Set Bunny.net specific headers before creating upload
-    headers = {
+  /// Get the required Bunny.net authorization headers
+  Map<String, String> getBunnyAuthHeaders() {
+    return {
       'AuthorizationSignature':
           autoGenerateSignature
               ? generateAuthorizationSignature()
@@ -97,6 +96,12 @@ class BunnyTusClient extends TusClient {
       'VideoId': videoId,
       'LibraryId': libraryId.toString(),
     };
+  }
+
+  @override
+  Future<void> createUpload() async {
+    // Set Bunny.net specific headers before creating upload
+    headers = getBunnyAuthHeaders();
 
     // Set Bunny.net specific metadata
     metadata = {
@@ -173,7 +178,7 @@ class BunnyTusClient extends TusClient {
             await _getOffset();
           } catch (e) {
             log('Failed to retrieve offset from server: $e');
-            // If we get a 400 error when checking offset, the upload URL is probably expired
+            // If we get an error when checking offset, the upload URL is likely expired
             // In that case, we need to create a new upload
             createNewUpload = true;
             // Remove any stored URL since it's no longer valid
@@ -189,6 +194,8 @@ class BunnyTusClient extends TusClient {
     // Create a new upload if needed
     if (createNewUpload) {
       try {
+        // Make sure to clean up any existing store entry
+        await store?.remove(fingerprint);
         await createUpload();
       } catch (e) {
         throw Exception('Failed to create upload: $e');
@@ -201,51 +208,94 @@ class BunnyTusClient extends TusClient {
     }
 
     // Start the upload
-    await uploadToBunny(
-      onProgress: onProgress,
-      onStart: onStart,
-      onComplete: onComplete,
-      measureUploadSpeed: measureUploadSpeed,
-    );
+    try {
+      await uploadToBunny(
+        onProgress: onProgress,
+        onStart: onStart,
+        onComplete: onComplete,
+        measureUploadSpeed: measureUploadSpeed,
+      );
+    } catch (e) {
+      // If we get a 400 error, try once more with a fresh upload
+      if (e.toString().contains('400') && !forceNewUpload) {
+        log('Got 400 error during upload, retrying with a fresh upload');
+        await store?.remove(fingerprint);
+        await createUpload();
+
+        await uploadToBunny(
+          onProgress: onProgress,
+          onStart: onStart,
+          onComplete: onComplete,
+          measureUploadSpeed: measureUploadSpeed,
+        );
+      } else {
+        rethrow;
+      }
+    }
   }
 
   /// Add this function to handle checking offset specifically for Bunny.net
   Future<int> _getOffset() async {
-    final offsetHeaders = Map<String, String>.from(headers ?? {})..addAll({
-      "Tus-Resumable": tusVersion,
-      'AuthorizationSignature':
-          autoGenerateSignature
-              ? generateAuthorizationSignature()
-              : authorizationSignature!,
-      'AuthorizationExpire': expirationTime.toString(),
-      'VideoId': videoId,
-      'LibraryId': libraryId.toString(),
-    });
+    // Ensure we have both basic TUS headers and Bunny.net authorization headers
+    final offsetHeaders = Map<String, String>.from(getBunnyAuthHeaders())
+      ..addAll({
+        "Tus-Resumable": tusVersion,
+        // Add Cache-Control header as per TUS spec to prevent caching
+        "Cache-Control": "no-store",
+      });
 
-    final response = await getClient().headUri(
-      uploadUrl_!,
-      options: Options(headers: offsetHeaders),
-      cancelToken: cancelToken,
-    );
-
-    if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
-      throw ProtocolException(
-        "Failed to retrieve offset from Bunny.net",
-        response.statusCode,
-      );
+    if (uploadUrl_ == null) {
+      throw ProtocolException("No upload URL available to check offset");
     }
 
-    final int? serverOffset = parseOffset(
-      response.headers.value("upload-offset"),
-    );
-
-    if (serverOffset == null) {
-      throw ProtocolException(
-        "missing upload offset in response from Bunny.net",
+    // Make sure connection is properly closed after error
+    Response? response;
+    try {
+      response = await getClient().headUri(
+        uploadUrl_!,
+        options: Options(
+          headers: offsetHeaders,
+          validateStatus: (status) => true, // Handle status codes manually
+        ),
+        cancelToken: cancelToken,
       );
-    }
 
-    return serverOffset;
+      // Check HTTP status code as per TUS spec
+      if (response.statusCode == 404 ||
+          response.statusCode == 410 ||
+          response.statusCode == 403) {
+        // As per TUS spec, these status codes indicate the resource is gone
+        await store?.remove(fingerprint);
+        throw ProtocolException(
+          "Upload resource no longer available",
+          response.statusCode,
+        );
+      } else if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
+        // Any other error status code
+        throw ProtocolException(
+          "Failed to retrieve offset from Bunny.net",
+          response.statusCode,
+        );
+      }
+
+      final int? serverOffset = parseOffset(
+        response.headers.value("upload-offset"),
+      );
+
+      if (serverOffset == null) {
+        throw ProtocolException(
+          "Missing upload-offset header in response from Bunny.net",
+        );
+      }
+
+      return serverOffset;
+    } catch (e) {
+      if (e is ProtocolException) {
+        rethrow;
+      }
+      // Convert any other error into a ProtocolException
+      throw ProtocolException("Error getting offset: $e", response?.statusCode);
+    }
   }
 
   /// Override the base isResumable to ensure we have a fingerprint
@@ -270,7 +320,10 @@ class BunnyTusClient extends TusClient {
       // Verify the URL doesn't contain any invalid characters
       // that could cause problems with Bunny.net
       final String urlStr = uploadUrl_.toString();
-      if (urlStr.contains(' ') || urlStr.contains('\n')) {
+      if (urlStr.contains(' ') ||
+          urlStr.contains('\n') ||
+          !urlStr.startsWith('http')) {
+        log('Invalid TUS URL found in store, removing: $urlStr');
         await store?.remove(fingerprint);
         return false;
       }
