@@ -36,9 +36,6 @@ class TusClient extends TusClientBase {
   late final Dio _client;
   final CancelToken cancelToken = CancelToken();
 
-  // Track if a TUS upload is expired
-  DateTime? _uploadExpires;
-
   List<Uri>? partialUploadUrls;
 
   // Initialize the shared client with proper settings
@@ -109,45 +106,11 @@ class TusClient extends TusClientBase {
         );
       }
 
-      // Parse Upload-Expires header if present
-      _parseUploadExpires(response.headers.map);
-
       uploadUrl_ = _parseUrl(urlStr);
       await store?.set(_fingerprint, uploadUrl_!);
     } on FileSystemException {
       throw Exception('Cannot find file to upload');
     }
-  }
-
-  /// Parse the Upload-Expires header and store expiration time
-  void _parseUploadExpires(Map<String, List<String>> headers) {
-    final expiresHeader = headers['upload-expires']?.first;
-    if (expiresHeader != null) {
-      try {
-        // Parse RFC 7231 datetime format
-        _uploadExpires = DateTime.parse(expiresHeader);
-        print('Upload will expire at: $_uploadExpires');
-
-        // Store the expiry info if possible
-        if (store is BunnyTusFileStore) {
-          (store! as BunnyTusFileStore)
-              .setMetadata(_fingerprint, {
-                'uploadExpires': _uploadExpires!.toIso8601String(),
-              })
-              .catchError((e) {
-                print('Failed to store upload expiry: $e');
-              });
-        }
-      } catch (e) {
-        print('Failed to parse Upload-Expires header: $e');
-      }
-    }
-  }
-
-  /// Check if the upload is expired
-  bool _isUploadExpired() {
-    if (_uploadExpires == null) return false;
-    return DateTime.now().isAfter(_uploadExpires!);
   }
 
   @override
@@ -165,27 +128,6 @@ class TusClient extends TusClientBase {
 
       if (uploadUrl_ == null) {
         return false;
-      }
-
-      // Check if we have metadata about upload expiration
-      if (store is BunnyTusFileStore) {
-        final metadata = await (store! as BunnyTusFileStore).getMetadata(
-          _fingerprint,
-        );
-        if (metadata != null && metadata.containsKey('uploadExpires')) {
-          try {
-            _uploadExpires = DateTime.parse(
-              metadata['uploadExpires'] as String,
-            );
-            if (_isUploadExpired()) {
-              print('Upload expired according to metadata');
-              await store?.remove(_fingerprint);
-              return false;
-            }
-          } catch (e) {
-            print('Failed to parse stored expiration info: $e');
-          }
-        }
       }
 
       // Basic URL validation
@@ -259,9 +201,9 @@ class TusClient extends TusClientBase {
       await uploadSpeedTest();
     }
 
-    // Create a new upload if not resumable or expired
-    if (!_isResumable || _isUploadExpired()) {
-      print('Creating new upload - not resumable or expired');
+    // Create a new upload if not resumable
+    if (!_isResumable) {
+      print('Creating new upload - not resumable');
       await createUpload();
     } else {
       print('Attempting to resume upload from stored URL: $uploadUrl_');
@@ -359,9 +301,6 @@ class TusClient extends TusClientBase {
             if (_actualRetry != 0) _actualRetry = 0;
           },
           onDone: () {
-            // Parse Upload-Expires header if present
-            _parseUploadExpires(_response!.headers.map);
-
             if (onProgress != null && !pauseUpload_ && !uploadCancelled) {
               final totalSent = min(_offset, totalBytes);
               double _workedUploadSpeed = 1.0;
@@ -573,9 +512,6 @@ class TusClient extends TusClientBase {
           response.statusCode,
         );
       }
-
-      // Parse Upload-Expires header if present
-      _parseUploadExpires(response.headers.map);
 
       final int? serverOffset = parseOffset(
         response.headers.value("upload-offset"),
