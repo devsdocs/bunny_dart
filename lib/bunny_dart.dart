@@ -1,7 +1,5 @@
-/// Bunny.net API wrapper for Dart
-///
-/// Provides access to Bunny CDN, Stream, Storage and more
-library;
+// Re-export dio for convenience
+export 'package:dio/dio.dart' show Dio, DioException, Options, ResponseType;
 
 export 'src/common/list_videos.dart';
 // Common exports
@@ -20,6 +18,8 @@ export 'src/tool/dio_proxy.dart';
 export 'src/tool/verbose.dart';
 export 'src/tool/video_metadata_helper.dart';
 export 'src/tus/bunny_tus_client.dart';
+// Core functionality
+
 // TUS upload support
 export 'src/tus/client.dart';
 export 'src/tus/exceptions.dart';

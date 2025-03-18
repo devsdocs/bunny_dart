@@ -6,15 +6,17 @@ import 'dart:io';
 import 'dart:math' show min;
 import 'dart:typed_data' show BytesBuilder, Uint8List;
 
+import 'package:bunny_dart/bunny_dart.dart';
 import 'package:bunny_dart/src/tool/double.dart';
-import 'package:bunny_dart/src/tus/exceptions.dart';
-import 'package:bunny_dart/src/tus/retry_scale.dart';
-import 'package:bunny_dart/src/tus/tus_client_base.dart';
 import 'package:dio/dio.dart';
 import 'package:speed_test_dart/speed_test_dart.dart';
 
+enum ConcatType { partial, finalUpload }
+
 /// This class is used for creating or resuming uploads.
 class TusClient extends TusClientBase {
+  bool allowParallelFallback = true;
+
   TusClient(
     super.file, {
     super.store,
@@ -26,6 +28,7 @@ class TusClient extends TusClientBase {
     super.connectionTimeout = const Duration(seconds: 30),
     super.receiveTimeout = const Duration(seconds: 30),
     super.enableCompression = true,
+    this.allowParallelFallback = true,
   }) {
     super.parallelUploads = parallelUploads;
     _fingerprint = generateFingerprint() ?? "";
@@ -35,6 +38,12 @@ class TusClient extends TusClientBase {
   // Single reusable Dio client
   late final Dio _client;
   final CancelToken cancelToken = CancelToken();
+
+  // Track if a TUS upload is expired
+  DateTime? _uploadExpires;
+
+  ConcatType? concatType;
+  List<Uri>? partialUploadUrls;
 
   // Initialize the shared client with proper settings
   void _initClient() {
@@ -73,7 +82,28 @@ class TusClient extends TusClientBase {
         "Tus-Resumable": tusVersion,
         "Upload-Metadata": _uploadMetadata ?? "",
         "Upload-Length": "$fileSize",
+        // Add Cache-Control header as per TUS spec
+        "Cache-Control": "no-store",
       });
+
+      if (concatType != null) {
+        if (concatType == ConcatType.partial) {
+          createHeaders['Upload-Concat'] = 'partial';
+        } else if (concatType == ConcatType.finalUpload &&
+            partialUploadUrls != null) {
+          final urls = partialUploadUrls!
+              .map(
+                (u) =>
+                    u.pathSegments.isNotEmpty
+                        ? '/${u.pathSegments.join('/')}'
+                        : u.toString(),
+              )
+              .join(' ');
+          createHeaders['Upload-Concat'] = 'final;$urls';
+          // Omit Upload-Length as per spec for final upload
+          createHeaders.remove('Upload-Length');
+        }
+      }
 
       final _url = url;
 
@@ -102,11 +132,45 @@ class TusClient extends TusClientBase {
         );
       }
 
+      // Parse Upload-Expires header if present
+      _parseUploadExpires(response.headers.map);
+
       uploadUrl_ = _parseUrl(urlStr);
       await store?.set(_fingerprint, uploadUrl_!);
     } on FileSystemException {
       throw Exception('Cannot find file to upload');
     }
+  }
+
+  /// Parse the Upload-Expires header and store expiration time
+  void _parseUploadExpires(Map<String, List<String>> headers) {
+    final expiresHeader = headers['upload-expires']?.first;
+    if (expiresHeader != null) {
+      try {
+        // Parse RFC 7231 datetime format
+        _uploadExpires = DateTime.parse(expiresHeader);
+        print('Upload will expire at: $_uploadExpires');
+
+        // Store the expiry info if possible
+        if (store is BunnyTusFileStore) {
+          (store! as BunnyTusFileStore)
+              .setMetadata(_fingerprint, {
+                'uploadExpires': _uploadExpires!.toIso8601String(),
+              })
+              .catchError((e) {
+                print('Failed to store upload expiry: $e');
+              });
+        }
+      } catch (e) {
+        print('Failed to parse Upload-Expires header: $e');
+      }
+    }
+  }
+
+  /// Check if the upload is expired
+  bool _isUploadExpired() {
+    if (_uploadExpires == null) return false;
+    return DateTime.now().isAfter(_uploadExpires!);
   }
 
   @override
@@ -125,10 +189,41 @@ class TusClient extends TusClientBase {
       if (uploadUrl_ == null) {
         return false;
       }
+
+      // Check if we have metadata about upload expiration
+      if (store is BunnyTusFileStore) {
+        final metadata = await (store! as BunnyTusFileStore).getMetadata(
+          _fingerprint,
+        );
+        if (metadata != null && metadata.containsKey('uploadExpires')) {
+          try {
+            _uploadExpires = DateTime.parse(
+              metadata['uploadExpires'] as String,
+            );
+            if (_isUploadExpired()) {
+              print('Upload expired according to metadata');
+              await store?.remove(_fingerprint);
+              return false;
+            }
+          } catch (e) {
+            print('Failed to parse stored expiration info: $e');
+          }
+        }
+      }
+
+      // Basic URL validation
+      final urlStr = uploadUrl_.toString();
+      if (urlStr.isEmpty || !urlStr.startsWith('http')) {
+        print('Invalid URL found: $urlStr');
+        await store?.remove(_fingerprint);
+        return false;
+      }
+
       return true;
     } on FileSystemException {
       throw Exception('Cannot find file to upload');
     } catch (e) {
+      print('Error in isResumable: $e');
       return false;
     }
   }
@@ -180,18 +275,41 @@ class TusClient extends TusClientBase {
     setUploadData(uri, headers, metadata);
 
     final _isResumable = await isResumable();
+    print('Upload resumable: $_isResumable');
 
     if (measureUploadSpeed) {
       await setUploadTestServers();
       await uploadSpeedTest();
     }
 
-    if (!_isResumable) {
+    // Create a new upload if not resumable or expired
+    if (!_isResumable || _isUploadExpired()) {
+      print('Creating new upload - not resumable or expired');
       await createUpload();
+    } else {
+      print('Attempting to resume upload from stored URL: $uploadUrl_');
     }
 
-    // get offset from server
-    _offset = await _getOffset();
+    // Attempt to get offset from server with error handling
+    try {
+      _offset = await _getOffset();
+      print('Starting upload at offset: $_offset');
+    } catch (e) {
+      if (e is ProtocolException &&
+          (e.code == 404 || e.code == 410 || e.code == 403 || e.code == 400)) {
+        print(
+          'Failed to get offset (${e.code}), creating new upload: ${e.message}',
+        );
+        // Clean up the old upload
+        await store?.remove(_fingerprint);
+        // Create a new upload and try again
+        await createUpload();
+        _offset = 0; // Reset offset
+      } else {
+        // For other errors, just rethrow
+        rethrow;
+      }
+    }
 
     // Save the file size as an int in a variable to avoid having to call
     final int totalBytes = fileSize!;
@@ -316,62 +434,27 @@ class TusClient extends TusClientBase {
         if (pauseUpload_ || uploadCancelled) break;
 
         activeUploads++;
-        await _uploadChunk(i, totalBytes, headers)
-            .then((_) async {
-              // Update progress
-              totalProgress += maxChunkSize;
-              _chunkComplete[i] = true;
-
-              // Check if we need to upload more chunks
-              if (_allChunksComplete() || pauseUpload_ || uploadCancelled) {
-                activeUploads--;
-                if (activeUploads == 0 && !completer.isCompleted) {
-                  progressTimer?.cancel();
-
-                  if (totalProgress >= totalBytes &&
-                      !pauseUpload_ &&
-                      !uploadCancelled) {
-                    await onCompleteUpload();
-                    if (onComplete != null) onComplete();
-                  }
-                  completer.complete();
-                }
-              } else {
-                // Find next chunk to upload
-                final nextChunkIndex = _findNextChunkIndex(effectiveChunks);
-                if (nextChunkIndex != -1) {
-                  await _uploadChunk(
-                    nextChunkIndex,
-                    totalBytes,
-                    headers,
-                  ).then((_) => activeUploads--);
-                } else {
-                  activeUploads--;
-                }
-              }
-            })
-            .catchError((e) {
-              activeUploads--;
-              if (e is ProtocolException && e.code == 409) {
-                // 409 conflict - try sequential upload instead
-                fallbackToSequential = true;
-              }
-              if (!completer.isCompleted) {
-                if (fallbackToSequential) {
-                  // Don't propagate the error, let it fall through to fallback
-                  completer.complete();
-                } else {
-                  completer.completeError(e as Object);
-                }
-              }
-            });
+        // Catch errors for each chunk
+        try {
+          await _uploadChunk(i, totalBytes, headers);
+        } catch (err) {
+          // If we get a 409, fall back to sequential
+          if (err is ProtocolException && err.code == 409) {
+            fallbackToSequential = true;
+            break;
+          }
+          rethrow;
+        }
       }
 
       await completer.future;
 
       // Fallback to sequential if we had conflicts with parallel upload
-      if (fallbackToSequential && !pauseUpload_ && !uploadCancelled) {
-        log('Falling back to sequential upload due to conflicts');
+      if (fallbackToSequential &&
+          allowParallelFallback &&
+          !pauseUpload_ &&
+          !uploadCancelled) {
+        print('Falling back to sequential upload due to conflicts');
         progressTimer?.cancel();
 
         // Reset offset to last server-confirmed offset
@@ -416,6 +499,8 @@ class TusClient extends TusClientBase {
       "Tus-Resumable": tusVersion,
       "Upload-Offset": "${_chunkOffsets[chunkIndex]}",
       "Content-Type": "application/offset+octet-stream",
+      // Add Cache-Control header as per TUS spec
+      "Cache-Control": "no-store",
     });
 
     try {
@@ -432,7 +517,9 @@ class TusClient extends TusClientBase {
 
       if (response.statusCode == 409) {
         // 409 Conflict - Need to resynchronize with server
-        log('Conflict detected for chunk $chunkIndex, re-syncing with server');
+        print(
+          'Conflict detected for chunk $chunkIndex, re-syncing with server',
+        );
         // Get current server offset
         final serverOffset = await _getOffset();
         _chunkOffsets[chunkIndex] = serverOffset;
@@ -446,6 +533,9 @@ class TusClient extends TusClientBase {
           response.statusCode,
         );
       }
+
+      // Parse Upload-Expires header if present
+      _parseUploadExpires(response.headers.map);
 
       final int? serverOffset = parseOffset(
         response.headers.value("upload-offset"),
@@ -471,7 +561,7 @@ class TusClient extends TusClientBase {
       final waitInterval = retryScale.getInterval(_actualRetry, retryInterval);
       _actualRetry += 1;
 
-      log(
+      print(
         'Failed to upload chunk $chunkIndex, retry: $_actualRetry, interval: $waitInterval',
       );
       await Future.delayed(waitInterval);
@@ -490,13 +580,17 @@ class TusClient extends TusClientBase {
       throw Exception("Cannot find file ${file.path.split('/').last}");
     }
 
-    final uploadHeaders = Map<String, String>.from(headers ?? {})..addAll({
-      "Tus-Resumable": tusVersion,
+    // Use consistent headers generation
+    final uploadHeaders = _generateRequestHeaders({
       "Upload-Offset": "$_offset",
       "Content-Type": "application/offset+octet-stream",
     });
 
     try {
+      print(
+        'Uploading chunk from offset $_offset with headers: $uploadHeaders',
+      );
+
       _response = await _client.patchUri<ResponseBody>(
         uploadUrl_!,
         data: await getData(),
@@ -513,6 +607,9 @@ class TusClient extends TusClientBase {
             if (_actualRetry != 0) _actualRetry = 0;
           },
           onDone: () {
+            // Parse Upload-Expires header if present
+            _parseUploadExpires(_response!.headers.map);
+
             if (onProgress != null && !pauseUpload_ && !uploadCancelled) {
               final totalSent = min(_offset, totalBytes);
               double _workedUploadSpeed = 1.0;
@@ -591,10 +688,19 @@ class TusClient extends TusClientBase {
         throw ProtocolException("Error getting Response from server");
       }
     } catch (e) {
+      // Better error logging and differentiation
+      if (e.toString().contains('400')) {
+        print(
+          'Got 400 error during chunk upload, might need to recreate upload',
+        );
+      }
+
       if (_actualRetry >= retries) rethrow;
       final waitInterval = retryScale.getInterval(_actualRetry, retryInterval);
       _actualRetry += 1;
-      log('Failed to upload, retry: $_actualRetry, interval: $waitInterval');
+      print(
+        'Failed to upload, retry: $_actualRetry, interval: $waitInterval, error: $e',
+      );
       await Future.delayed(waitInterval);
     }
   }
@@ -646,21 +752,69 @@ class TusClient extends TusClientBase {
   /// Get offset from server throwing [ProtocolException] on error
   Future<int> _getOffset() async {
     try {
-      final offsetHeaders = Map<String, String>.from(headers ?? {})
-        ..addAll({"Tus-Resumable": tusVersion});
+      final offsetHeaders = Map<String, String>.from(headers ?? {});
+
+      // If this is BunnyTusClient, add Bunny.net authorization headers
+      if (this is BunnyTusClient) {
+        offsetHeaders.addAll((this as BunnyTusClient).getBunnyAuthHeaders());
+      }
+
+      offsetHeaders.addAll({
+        "Tus-Resumable": tusVersion,
+        "Cache-Control": "no-store",
+      });
+
+      print('Getting offset for upload URL: $uploadUrl_');
+
+      // Add debugging for headers
+      print('Request headers for offset check: $offsetHeaders');
+
       final response = await _client.headUri(
         uploadUrl_!,
-        options: Options(headers: offsetHeaders),
+        options: Options(
+          headers: offsetHeaders,
+          validateStatus: (status) => true, // Handle status codes manually
+          receiveTimeout: receiveTimeout,
+          sendTimeout: connectionTimeout,
+        ),
         cancelToken: cancelToken,
       );
 
-      if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
-        log('Error retrieving upload offset: Status ${response.statusCode}');
+      print(
+        'Offset check response: ${response.statusCode} - ${response.statusMessage}',
+      );
+      print('Response headers: ${response.headers.map}');
+
+      // Handle status codes as per TUS spec
+      if (response.statusCode == 404 ||
+          response.statusCode == 410 ||
+          response.statusCode == 403) {
+        // Resource no longer exists
+        print(
+          'Upload resource no longer available: HTTP ${response.statusCode}',
+        );
+        await store?.remove(_fingerprint);
+        throw ProtocolException(
+          "Upload resource no longer available",
+          response.statusCode,
+        );
+      } else if (response.statusCode == 400) {
+        // Bad request - could be expired auth or other issues
+        print('400 Bad Request when checking offset');
+        throw ProtocolException(
+          "Bad request when retrieving offset - auth may be expired",
+          response.statusCode,
+        );
+      } else if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
+        print('Error retrieving upload offset: Status ${response.statusCode}');
         throw ProtocolException(
           "Unexpected error while resuming upload",
           response.statusCode,
         );
       }
+
+      // Parse Upload-Expires header if present
+      _parseUploadExpires(response.headers.map);
 
       final int? serverOffset = parseOffset(
         response.headers.value("upload-offset"),
@@ -670,17 +824,169 @@ class TusClient extends TusClientBase {
           "missing upload offset in response for resuming upload",
         );
       }
+      print('Server reported offset: $serverOffset');
       return serverOffset;
+    } on DioException catch (e) {
+      print('Network error getting offset: ${e.message}');
+      throw ProtocolException(
+        "Network error getting offset: ${e.message}",
+        e.response?.statusCode ?? 0,
+      );
     } catch (e) {
       // If it's already a ProtocolException, just rethrow
       if (e is ProtocolException) rethrow;
 
       // Otherwise wrap the error
-      throw ProtocolException("Failed to retrieve upload offset: $e", 400);
+      print('Error getting offset: $e');
+      // Instead of always returning 400, use 0 for unknown
+      throw ProtocolException("Failed to retrieve upload offset: $e", 0);
     }
   }
 
-  /// Get data from file to upload
+  /// Generate standard TUS headers for requests
+  Map<String, String> _getTusHeaders([Map<String, String>? additionalHeaders]) {
+    final Map<String, String> tusHeaders = {
+      "Tus-Resumable": tusVersion,
+      "Cache-Control": "no-store",
+    };
+
+    if (additionalHeaders != null) {
+      tusHeaders.addAll(additionalHeaders);
+    }
+
+    // Add any custom headers from the instance
+    if (headers != null) {
+      tusHeaders.addAll(headers!);
+    }
+
+    return tusHeaders;
+  }
+
+  /// Retry a function with backoff, used for better error recovery
+  Future<T> _retryWithBackoff<T>(
+    Future<T> Function() fn,
+    String operationName, {
+    int maxRetries = -1, // Use instance retries if -1
+  }) async {
+    final int retriesLeft = maxRetries >= 0 ? maxRetries : retries;
+    int attempt = 0;
+
+    while (true) {
+      try {
+        return await fn();
+      } catch (e) {
+        attempt++;
+
+        // If we've used all retries, or it's an error we shouldn't retry
+        if (attempt > retriesLeft ||
+            (e is ProtocolException &&
+                (e.code == 404 || e.code == 410 || e.code == 403))) {
+          print('$operationName failed after $attempt attempts');
+          rethrow;
+        }
+
+        final waitInterval = retryScale.getInterval(attempt - 1, retryInterval);
+        print(
+          '$operationName failed, retry $attempt in ${waitInterval.inSeconds}s: $e',
+        );
+        await Future.delayed(waitInterval);
+      }
+    }
+  }
+
+  /// More robust method to retrieve file data with retries
+  Future<Uint8List> _getDataWithRetry(int start, int end) async {
+    return await _retryWithBackoff(() async {
+      if (!File(file.path).existsSync()) {
+        throw Exception("File ${file.path.split('/').last} not found");
+      }
+
+      final result = BytesBuilder();
+      await for (final chunk in file.openRead(start, end)) {
+        if (pauseUpload_ || uploadCancelled) break;
+        result.add(chunk);
+      }
+
+      return result.takeBytes();
+    }, 'Reading file chunk');
+  }
+
+  /// Improved chunk upload
+  Future<void> _uploadChunkWithChecks(
+    int chunkIndex,
+    int totalBytes,
+    Map<String, String>? headers,
+  ) async {
+    final int start = _chunkOffsets[chunkIndex]!;
+    final int end = min(start + maxChunkSize, fileSize ?? 0);
+
+    print('Uploading chunk $chunkIndex: bytes $start-$end of $totalBytes');
+
+    // Check offset with server before upload if needed
+    if (chunkIndex > 0) {
+      try {
+        final serverOffset = await _getOffset();
+        if (serverOffset != _offset) {
+          print(
+            'Server offset ($serverOffset) differs from client offset ($_offset), syncing',
+          );
+          _offset = serverOffset;
+        }
+      } catch (e) {
+        print('Error checking offset before chunk upload: $e');
+        // Continue anyway, the upload will either succeed or fail with better error
+      }
+    }
+
+    final uploadHeaders = _getTusHeaders({
+      "Upload-Offset": "${_chunkOffsets[chunkIndex]}",
+      "Content-Type": "application/offset+octet-stream",
+    });
+
+    final data = await _getDataWithRetry(start, end);
+
+    try {
+      final response = await _client.patchUri<ResponseBody>(
+        uploadUrl_!,
+        data: data,
+        options: Options(
+          headers: uploadHeaders,
+          responseType: ResponseType.stream,
+          sendTimeout: connectionTimeout,
+          receiveTimeout: receiveTimeout,
+        ),
+        cancelToken: cancelToken,
+      );
+
+      // Handle server response
+      if (response.statusCode == 409) {
+        throw ProtocolException("Conflict in chunk upload", 409);
+      } else if (response.statusCode == 400) {
+        throw ProtocolException("Bad request for chunk upload", 400);
+      } else if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
+        throw ProtocolException(
+          "Error uploading chunk: HTTP ${response.statusCode}",
+          response.statusCode,
+        );
+      }
+
+      _parseUploadExpires(response.headers.map);
+
+      final serverOffset = parseOffset(response.headers.value("upload-offset"));
+      if (serverOffset == null) {
+        throw ProtocolException("Missing offset in response");
+      }
+
+      _chunkOffsets[chunkIndex] = serverOffset;
+      print('Successfully uploaded chunk $chunkIndex to offset $serverOffset');
+    } on ProtocolException {
+      rethrow;
+    } catch (e) {
+      throw ProtocolException("Error uploading chunk: $e");
+    }
+  }
+
+  /// Get data from file to upload - made public for subclasses to override
   Future<Uint8List> getData() async {
     final int start = _offset;
     int end = _offset + maxChunkSize;
@@ -713,6 +1019,39 @@ class TusClient extends TusClientBase {
     _chunkOffsets[chunkIndex] = _chunkOffsets[chunkIndex]! + bytesRead;
 
     return result.takeBytes();
+  }
+
+  /// Implement the termination extension for the TUS protocol
+  Future<bool> terminateUpload() async {
+    if (uploadUrl_ == null) {
+      print('No upload URL to terminate');
+      return false;
+    }
+
+    try {
+      final terminateHeaders = Map<String, String>.from(headers ?? {})
+        ..addAll({"Tus-Resumable": tusVersion});
+
+      final response = await _client.deleteUri(
+        uploadUrl_!,
+        options: Options(
+          headers: terminateHeaders,
+          validateStatus: (status) => true,
+        ),
+        cancelToken: cancelToken,
+      );
+
+      if (response.statusCode == 204) {
+        await store?.remove(_fingerprint);
+        return true;
+      } else {
+        print('Failed to terminate upload: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      print('Error terminating upload: $e');
+      return false;
+    }
   }
 
   int? parseOffset(String? offset) {
@@ -767,5 +1106,27 @@ class TusClient extends TusClientBase {
     if (!cancelToken.isCancelled) {
       cancelToken.cancel('Disposed');
     }
+  }
+
+  /// Generate consistent headers for all TUS requests
+  Map<String, String> _generateRequestHeaders([
+    Map<String, String>? additionalHeaders,
+  ]) {
+    final requestHeaders = {
+      'Tus-Resumable': tusVersion,
+      'Cache-Control': 'no-store',
+    };
+
+    // Add any custom headers
+    if (headers != null) {
+      requestHeaders.addAll(headers!);
+    }
+
+    // Add additional headers if provided
+    if (additionalHeaders != null) {
+      requestHeaders.addAll(additionalHeaders);
+    }
+
+    return requestHeaders;
   }
 }

@@ -46,9 +46,6 @@ class BunnyTusClient extends TusClient {
   /// Checksum algorithm to use for upload integrity verification
   final String? checksumAlgorithm;
 
-  /// Tracks when this upload will expire, if server provides expiration info
-  DateTime? _uploadExpires;
-
   BunnyTusClient(
     super.file, {
     super.store,
@@ -73,6 +70,8 @@ class BunnyTusClient extends TusClient {
   }) : expirationTime =
            expirationTimeInSeconds ??
            (DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600) {
+    // Force single upload for now, since Bunny.net doesn't support parallel uploads
+    super.parallelUploads = 1;
     // Set up the Bunny.net TUS endpoint
     url = Uri.parse(bunnyTusEndpoint);
 
@@ -95,6 +94,9 @@ class BunnyTusClient extends TusClient {
 
   /// Get the required Bunny.net authorization headers
   Map<String, String> getBunnyAuthHeaders() {
+    // Regenerate authorization for each request to avoid expiration issues
+    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
     return {
       'AuthorizationSignature':
           autoGenerateSignature
@@ -177,26 +179,6 @@ class BunnyTusClient extends TusClient {
     );
   }
 
-  /// Check if the upload is expired
-  bool _isUploadExpired() {
-    if (_uploadExpires == null) return false;
-    return DateTime.now().isAfter(_uploadExpires!);
-  }
-
-  /// Parse the Upload-Expires header
-  void _parseUploadExpires(Map<String, List<String>> headers) {
-    final expiresHeader = headers['upload-expires']?.first;
-    if (expiresHeader != null) {
-      try {
-        // Parse RFC 7231 datetime format
-        _uploadExpires = DateTime.parse(expiresHeader);
-        log('Upload will expire at: $_uploadExpires');
-      } catch (e) {
-        log('Failed to parse Upload-Expires header: $e');
-      }
-    }
-  }
-
   /// Generate checksum for the given data if a checksum algorithm is specified
   String? _generateChecksum(Uint8List data) {
     if (checksumAlgorithm == null) return null;
@@ -207,7 +189,7 @@ class BunnyTusClient extends TusClient {
       case 'md5':
         return base64.encode(md5.convert(data).bytes);
       default:
-        log('Unsupported checksum algorithm: $checksumAlgorithm');
+        print('Unsupported checksum algorithm: $checksumAlgorithm');
         return null;
     }
   }
@@ -226,15 +208,20 @@ class BunnyTusClient extends TusClient {
     if (!createNewUpload) {
       try {
         final isResumable = await this.isResumable();
-        if (!isResumable || _isUploadExpired()) {
-          log('Upload not resumable or expired, creating new upload');
+        if (!isResumable) {
+          print('Upload not resumable, creating new upload');
           createNewUpload = true;
         } else {
           // Verify the offset can be retrieved
           try {
             await _getOffset();
           } catch (e) {
-            log('Failed to retrieve offset from server: $e');
+            print('Failed to retrieve offset from server: $e');
+            if (e.toString().contains('400')) {
+              print(
+                'Got 400 error checking offset, likely authorization expired',
+              );
+            }
             // If we get an error when checking offset, the upload URL is likely expired
             // In that case, we need to create a new upload
             createNewUpload = true;
@@ -243,7 +230,7 @@ class BunnyTusClient extends TusClient {
           }
         }
       } catch (e) {
-        log('Error checking resume status: $e');
+        print('Error checking resume status: $e');
         createNewUpload = true;
       }
     }
@@ -251,10 +238,12 @@ class BunnyTusClient extends TusClient {
     // Create a new upload if needed
     if (createNewUpload) {
       try {
+        print('Creating new upload for ${file.path}');
         // Make sure to clean up any existing store entry
         await store?.remove(fingerprint);
         await createUpload();
       } catch (e) {
+        print('Failed to create upload: $e');
         throw Exception('Failed to create upload: $e');
       }
     }
@@ -273,9 +262,11 @@ class BunnyTusClient extends TusClient {
         measureUploadSpeed: measureUploadSpeed,
       );
     } catch (e) {
+      print('Error during upload: $e');
+
       // If we get a 400 error, try once more with a fresh upload
       if (e.toString().contains('400') && !forceNewUpload) {
-        log('Got 400 error during upload, retrying with a fresh upload');
+        print('Got 400 error during upload, retrying with a fresh upload');
         await store?.remove(fingerprint);
         await createUpload();
 
@@ -293,17 +284,16 @@ class BunnyTusClient extends TusClient {
 
   /// Add this function to handle checking offset specifically for Bunny.net
   Future<int> _getOffset() async {
-    // Ensure we have both basic TUS headers and Bunny.net authorization headers
+    // Always get fresh authentication headers for each request
     final offsetHeaders = Map<String, String>.from(getBunnyAuthHeaders())
-      ..addAll({
-        "Tus-Resumable": tusVersion,
-        // Add Cache-Control header as per TUS spec to prevent caching
-        "Cache-Control": "no-store",
-      });
+      ..addAll({"Tus-Resumable": tusVersion, "Cache-Control": "no-store"});
 
     if (uploadUrl_ == null) {
       throw ProtocolException("No upload URL available to check offset");
     }
+
+    print('Checking offset with Bunny.net: $uploadUrl_');
+    print('Using headers: $offsetHeaders');
 
     // Make sure connection is properly closed after error
     Response? response;
@@ -319,14 +309,18 @@ class BunnyTusClient extends TusClient {
         cancelToken: cancelToken,
       );
 
+      print('Offset response status: ${response.statusCode}');
+      print('Offset response headers: ${response.headers.map}');
+
       // Check HTTP status code as per TUS spec
       if (response.statusCode == 404 ||
           response.statusCode == 410 ||
-          response.statusCode == 403) {
-        // As per TUS spec, these status codes indicate the resource is gone
+          response.statusCode == 403 ||
+          response.statusCode == 400) {
+        // As per TUS spec or typical error responses
         await store?.remove(fingerprint);
         throw ProtocolException(
-          "Upload resource no longer available",
+          "Upload resource no longer available or auth expired",
           response.statusCode,
         );
       } else if (!(response.statusCode! >= 200 && response.statusCode! < 300)) {
@@ -336,9 +330,6 @@ class BunnyTusClient extends TusClient {
           response.statusCode,
         );
       }
-
-      // Parse Upload-Expires header if present
-      _parseUploadExpires(response.headers.map);
 
       final int? serverOffset = parseOffset(
         response.headers.value("upload-offset"),
@@ -350,106 +341,15 @@ class BunnyTusClient extends TusClient {
         );
       }
 
+      print('Server reported offset: $serverOffset');
       return serverOffset;
     } catch (e) {
       if (e is ProtocolException) {
         rethrow;
       }
       // Convert any other error into a ProtocolException
+      print('Error getting offset: $e');
       throw ProtocolException("Error getting offset: $e", response?.statusCode);
-    }
-  }
-
-  /// Override the base isResumable to ensure we have a fingerprint
-  /// and valid stored URL before attempting to resume
-  @override
-  Future<bool> isResumable() async {
-    try {
-      fileSize = await file.length();
-      pauseUpload_ = false;
-      uploadCancelled = false;
-
-      if (!resumingEnabled || fingerprint.isEmpty) {
-        return false;
-      }
-
-      uploadUrl_ = await store?.get(fingerprint);
-
-      if (uploadUrl_ == null) {
-        return false;
-      }
-
-      // Verify the URL doesn't contain any invalid characters
-      // that could cause problems with Bunny.net
-      final String urlStr = uploadUrl_.toString();
-      if (urlStr.contains(' ') ||
-          urlStr.contains('\n') ||
-          !urlStr.startsWith('http')) {
-        log('Invalid TUS URL found in store, removing: $urlStr');
-        await store?.remove(fingerprint);
-        return false;
-      }
-
-      // Check if we have saved metadata about expiration
-      if (store is BunnyTusFileStore) {
-        final metadataStore = store! as BunnyTusFileStore;
-        final metadata = await metadataStore.getMetadata(fingerprint);
-
-        if (metadata != null && metadata.containsKey('uploadExpires')) {
-          try {
-            _uploadExpires = DateTime.parse(
-              metadata['uploadExpires'] as String,
-            );
-            if (_isUploadExpired()) {
-              log('Stored upload is expired based on metadata');
-              await store?.remove(fingerprint);
-              return false;
-            }
-          } catch (e) {
-            log('Error parsing stored expiration time: $e');
-          }
-        }
-      }
-
-      return true;
-    } on FileSystemException {
-      throw Exception('Cannot find file to upload');
-    } catch (e) {
-      log('Error checking if upload is resumable: $e');
-      return false;
-    }
-  }
-
-  /// Implement the termination extension to delete uploads
-  Future<bool> terminateUpload() async {
-    if (uploadUrl_ == null) {
-      log('No upload URL to terminate');
-      return false;
-    }
-
-    try {
-      final terminateHeaders = Map<String, String>.from(getBunnyAuthHeaders())
-        ..addAll({"Tus-Resumable": tusVersion});
-
-      final response = await getClient().deleteUri(
-        uploadUrl_!,
-        options: Options(
-          headers: terminateHeaders,
-          validateStatus: (status) => true,
-        ),
-        cancelToken: cancelToken,
-      );
-
-      if (response.statusCode == 204) {
-        await store?.remove(fingerprint);
-        return true;
-      } else {
-        log('Failed to terminate upload: ${response.statusCode}');
-        return false;
-      }
-    } catch (e) {
-      log('Error terminating upload: $e');
-      return false;
     }
   }
 
@@ -458,14 +358,18 @@ class BunnyTusClient extends TusClient {
   Future<Uint8List> getData() async {
     final data = await super.getData();
 
+    // Update headers with fresh authentication for each chunk
+    final currentHeaders = Map<String, String>.from(getBunnyAuthHeaders());
+
     // If checksumAlgorithm is specified, calculate and add the checksum header
     final checksum = _generateChecksum(data);
     if (checksum != null && checksumAlgorithm != null) {
-      final currentHeaders = Map<String, String>.from(headers ?? {});
       currentHeaders['Upload-Checksum'] =
           '${checksumAlgorithm!.toLowerCase()} $checksum';
-      headers = currentHeaders;
     }
+
+    // Update the headers
+    headers = currentHeaders;
 
     return data;
   }
@@ -483,7 +387,7 @@ class BunnyTusClient extends TusClient {
       try {
         await metadataStore.setMetadata(fingerprint, metadata);
       } catch (e) {
-        log('Error updating metadata on completion: $e');
+        print('Error updating metadata on completion: $e');
       }
     }
 
