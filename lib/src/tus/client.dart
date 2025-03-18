@@ -356,6 +356,14 @@ class TusClient extends TusClientBase {
             'Server returned 409, re-sync offset, will retry',
             409,
           );
+        } else if (_response!.statusCode == 400) {
+          print('Got 400 error during chunk upload. Re-syncing offset...');
+          final offset = await _getOffset();
+          _offset = offset;
+          throw ProtocolException(
+            'Server returned 400, re-sync offset, will retry',
+            400,
+          );
         } else if (!(_response!.statusCode! >= 200 &&
             _response!.statusCode! < 300)) {
           throw ProtocolException(
