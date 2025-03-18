@@ -56,7 +56,8 @@ class BunnyTusClient extends TusClient {
     this.checksumAlgorithm,
   }) : expirationTime =
            expirationTimeInSeconds ??
-           (DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600) {
+           // Default to 1 day expiration if not specified
+           (DateTime.now().millisecondsSinceEpoch ~/ 1000 + 86400) {
     // Force single upload for now, since Bunny.net doesn't support parallel uploads
     super.parallelUploads = 1;
     // Set up the Bunny.net TUS endpoint
