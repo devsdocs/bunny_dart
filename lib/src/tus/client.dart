@@ -409,9 +409,18 @@ class TusClient extends TusClientBase {
           },
         );
 
-        if (!(_response!.statusCode! >= 200 && _response!.statusCode! < 300)) {
+        if (_response!.statusCode == 409) {
+          print('Got 409 conflict. Re-syncing offset...');
+          final offset = await _getOffset();
+          _offset = offset;
           throw ProtocolException(
-            "Error while uploading file",
+            'Server returned 409, re-sync offset, will retry',
+            409,
+          );
+        } else if (!(_response!.statusCode! >= 200 &&
+            _response!.statusCode! < 300)) {
+          throw ProtocolException(
+            'Error while uploading file',
             _response!.statusCode,
           );
         }

@@ -431,20 +431,13 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
     required String title,
     required XFile videoFile,
     String? collectionId,
-    bool jitEnabled = false,
-    String? resolutions,
-    String? codecs,
     int? thumbnailTime,
-    bool autoGenerateSignature = true,
-    String? authorizationSignature,
     int? expirationTimeInSeconds,
     TusStore? store,
     int maxChunkSize = 512 * 1024,
     int retries = 3,
     RetryScale retryScale = RetryScale.exponentialJitter,
     int retryInterval = 5,
-    int parallelUploads = 3,
-    bool forceSequential = false,
   }) async {
     try {
       // First create the video entry to get the ID
@@ -474,14 +467,11 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
         collectionId: collectionId,
         thumbnailTime: thumbnailTime,
         expirationTimeInSeconds: expirationTimeInSeconds,
-        autoGenerateSignature: autoGenerateSignature,
-        authorizationSignature: authorizationSignature,
         store: store,
         maxChunkSize: maxChunkSize,
         retries: retries,
         retryScale: retryScale,
         retryInterval: retryInterval,
-        parallelUploads: parallelUploads,
       );
     } catch (e, s) {
       _sendError('Error creating video for TUS upload: $e\nStack: $s');
@@ -496,8 +486,6 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
     required XFile videoFile,
     String? collectionId,
     int? thumbnailTime,
-    bool autoGenerateSignature = true,
-    String? authorizationSignature,
     int? expirationTimeInSeconds,
     TusStore? store,
     int maxChunkSize = 512 * 1024,
@@ -515,14 +503,11 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
       collectionId: collectionId,
       thumbnailTime: thumbnailTime,
       expirationTimeInSeconds: expirationTimeInSeconds,
-      autoGenerateSignature: autoGenerateSignature,
-      authorizationSignature: authorizationSignature,
       store: store,
       maxChunkSize: maxChunkSize,
       retries: retries,
       retryScale: retryScale,
       retryInterval: retryInterval,
-      parallelUploads: parallelUploads,
     );
   }
 }

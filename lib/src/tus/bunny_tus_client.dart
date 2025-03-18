@@ -33,12 +33,6 @@ class BunnyTusClient extends TusClient {
   /// The expiration time of the upload in seconds since epoch
   final int expirationTime;
 
-  /// Whether to auto-generate the authorization signature
-  final bool autoGenerateSignature;
-
-  /// The pre-generated authorization signature (if not auto-generating)
-  final String? authorizationSignature;
-
   /// Checksum algorithm to use for upload integrity verification
   final String? checksumAlgorithm;
 
@@ -49,7 +43,6 @@ class BunnyTusClient extends TusClient {
     super.retries = 3,
     super.retryScale = RetryScale.exponentialJitter,
     super.retryInterval = 5,
-    super.parallelUploads = 3,
     super.connectionTimeout,
     super.receiveTimeout,
     required this.apiKey,
@@ -59,8 +52,6 @@ class BunnyTusClient extends TusClient {
     this.collectionId,
     this.thumbnailTime,
     int? expirationTimeInSeconds,
-    this.autoGenerateSignature = true,
-    this.authorizationSignature,
 
     this.checksumAlgorithm,
   }) : expirationTime =
@@ -70,13 +61,6 @@ class BunnyTusClient extends TusClient {
     super.parallelUploads = 1;
     // Set up the Bunny.net TUS endpoint
     url = Uri.parse(bunnyTusEndpoint);
-
-    // Verify we have required parameters
-    if (!autoGenerateSignature && authorizationSignature == null) {
-      throw ArgumentError(
-        'authorizationSignature is required when autoGenerateSignature is false',
-      );
-    }
   }
 
   /// Generate the authorization signature required by Bunny.net
@@ -91,10 +75,7 @@ class BunnyTusClient extends TusClient {
   /// Get the required Bunny.net authorization headers
   Map<String, String> getBunnyAuthHeaders() {
     return {
-      'AuthorizationSignature':
-          autoGenerateSignature
-              ? generateAuthorizationSignature()
-              : authorizationSignature!,
+      'AuthorizationSignature': generateAuthorizationSignature(),
       'AuthorizationExpire': expirationTime.toString(),
       'VideoId': videoId,
       'LibraryId': libraryId.toString(),
