@@ -370,6 +370,171 @@ class VideoMetadataHelper {
       videos: allVideos,
     );
   }
+
+  /// Find potential duplicate videos in a directory
+  /// Returns a DuplicateDetectionResult containing groups of potential duplicates
+  static Future<DuplicateDetectionResult> findPotentialDuplicates({
+    required String directory,
+    bool recursive = false,
+    double durationToleranceSeconds = 1.0,
+    double fileSizeTolerancePercent = 10.0,
+    bool compareResolution = true,
+    bool compareCodec = false,
+    double minSimilarityScore = 0.7,
+  }) async {
+    final allVideos = await scanDirectory(
+      directory: directory,
+      recursive: recursive,
+    );
+
+    // Sort videos by duration for more efficient comparisons
+    allVideos.sort((a, b) {
+      final aDuration = a.duration?.inMilliseconds ?? 0;
+      final bDuration = b.duration?.inMilliseconds ?? 0;
+      return aDuration.compareTo(bDuration);
+    });
+
+    final duplicateGroups = <VideoDuplicateGroup>[];
+    final processedVideos = <String>{};
+
+    for (var i = 0; i < allVideos.length; i++) {
+      final video = allVideos[i];
+
+      // Skip if this video is already in a duplicate group
+      if (processedVideos.contains(video.path)) continue;
+
+      final potentialDuplicates = <VideoMetadataResult>[];
+      final durationTolerance = Duration(
+        milliseconds: (durationToleranceSeconds * 1000).round(),
+      );
+
+      for (var j = i + 1; j < allVideos.length; j++) {
+        final otherVideo = allVideos[j];
+
+        // If other video duration is too far from current video, we can break
+        // since we sorted by duration
+        if (otherVideo.duration != null &&
+            video.duration != null &&
+            otherVideo.duration! > video.duration! + durationTolerance) {
+          break;
+        }
+
+        final similarity = _calculateSimilarity(
+          video,
+          otherVideo,
+          durationTolerance: durationTolerance,
+          fileSizeTolerancePercent: fileSizeTolerancePercent,
+          compareResolution: compareResolution,
+          compareCodec: compareCodec,
+        );
+
+        if (similarity >= minSimilarityScore) {
+          if (potentialDuplicates.isEmpty) {
+            potentialDuplicates.add(video);
+          }
+          potentialDuplicates.add(otherVideo);
+          processedVideos.add(otherVideo.path);
+        }
+      }
+
+      if (potentialDuplicates.isNotEmpty) {
+        duplicateGroups.add(
+          VideoDuplicateGroup(
+            videos: potentialDuplicates,
+            baseVideo: video,
+            directory: directory,
+          ),
+        );
+        processedVideos.add(video.path);
+      }
+    }
+
+    return DuplicateDetectionResult(
+      directory: directory,
+      recursive: recursive,
+      totalVideosScanned: allVideos.length,
+      duplicateGroups: duplicateGroups,
+      uniqueVideos:
+          allVideos.where((v) => !processedVideos.contains(v.path)).toList(),
+    );
+  }
+
+  /// Calculate similarity score between two videos (0.0 to 1.0)
+  static double _calculateSimilarity(
+    VideoMetadataResult video1,
+    VideoMetadataResult video2, {
+    required Duration durationTolerance,
+    required double fileSizeTolerancePercent,
+    required bool compareResolution,
+    required bool compareCodec,
+  }) {
+    double score = 0.0;
+    num factors = 0;
+
+    // Duration comparison (heaviest weight)
+    if (video1.duration != null && video2.duration != null) {
+      final durationDiff =
+          (video1.duration!.inMilliseconds - video2.duration!.inMilliseconds)
+              .abs();
+
+      if (durationDiff <= durationTolerance.inMilliseconds) {
+        final durationSimilarity =
+            1 -
+            (durationDiff /
+                durationTolerance.inMilliseconds.clamp(1, double.infinity));
+        score += durationSimilarity * 3; // Higher weight for duration
+        factors += 3;
+      } else {
+        return 0.0; // Duration difference exceeds tolerance, not a duplicate
+      }
+    }
+
+    // File size comparison
+    final sizeRatio =
+        video1.fileSize > video2.fileSize
+            ? video2.fileSize / video1.fileSize
+            : video1.fileSize / video2.fileSize;
+
+    final minAcceptableRatio = (100 - fileSizeTolerancePercent) / 100;
+    if (sizeRatio >= minAcceptableRatio) {
+      score += sizeRatio * 2; // Higher weight for file size
+      factors += 2;
+    } else {
+      score +=
+          sizeRatio * 0.5; // Still consider file size but with lower weight
+      factors += 0.5;
+    }
+
+    // Resolution comparison
+    if (compareResolution &&
+        video1.width != null &&
+        video1.height != null &&
+        video2.width != null &&
+        video2.height != null) {
+      if (video1.width == video2.width && video1.height == video2.height) {
+        score += 2;
+        factors += 2;
+      } else {
+        // Calculate resolution similarity
+        final area1 = video1.width! * video1.height!;
+        final area2 = video2.width! * video2.height!;
+        final resRatio = area1 > area2 ? area2 / area1 : area1 / area2;
+        score += resRatio;
+        factors += 1;
+      }
+    }
+
+    // Codec comparison
+    if (compareCodec && video1.codec != null && video2.codec != null) {
+      if (video1.codec == video2.codec) {
+        score += 1;
+        factors += 1;
+      }
+    }
+
+    // Normalize score to 0.0-1.0
+    return factors > 0 ? score / factors : 0.0;
+  }
 }
 
 /// Report with statistics about videos in a directory
@@ -441,6 +606,157 @@ class VideoDirectoryReport {
     buffer.writeln('\nCodecs:');
     for (final entry in codecCounts.entries) {
       buffer.writeln('  ${entry.key}: ${entry.value}');
+    }
+
+    return buffer.toString();
+  }
+}
+
+/// Represents a group of potentially duplicate videos
+class VideoDuplicateGroup {
+  /// The base video that others are compared against
+  final VideoMetadataResult baseVideo;
+
+  /// List of videos that are potential duplicates (includes the base video)
+  final List<VideoMetadataResult> videos;
+
+  /// Directory from which these videos were found
+  final String directory;
+
+  VideoDuplicateGroup({
+    required this.baseVideo,
+    required this.videos,
+    required this.directory,
+  });
+
+  /// Get total space that could be saved by removing duplicates
+  int get potentialSpaceSaving {
+    if (videos.length <= 1) return 0;
+    return videos
+        .skip(1) // Skip the base video
+        .fold(0, (sum, video) => sum + video.fileSize);
+  }
+
+  /// Get a formatted string showing the potential space saving
+  String get potentialSpaceSavingFormatted {
+    final bytes = potentialSpaceSaving;
+    if (bytes < 1024) return "$bytes B";
+    if (bytes < 1024 * 1024) {
+      return "${(bytes / 1024).toStringAsFixed(2)} KB";
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return "${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB";
+    }
+    return "${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
+  }
+
+  /// Returns a summary of the duplicate group
+  String getSummary() {
+    final buffer = StringBuffer();
+    buffer.writeln('Potential duplicate group:');
+    buffer.writeln('Base: ${baseVideo.path}');
+    buffer.writeln('  - Size: ${baseVideo.fileSizeFormatted}');
+    buffer.writeln('  - Duration: ${baseVideo.durationFormatted}');
+    buffer.writeln('  - Resolution: ${baseVideo.resolution}');
+    buffer.writeln('Potential duplicates:');
+
+    for (final video in videos.skip(1)) {
+      buffer.writeln('- ${video.path}');
+      buffer.writeln('  - Size: ${video.fileSizeFormatted}');
+      buffer.writeln('  - Duration: ${video.durationFormatted}');
+      buffer.writeln('  - Resolution: ${video.resolution}');
+    }
+
+    buffer.writeln('Potential space saving: $potentialSpaceSavingFormatted');
+    return buffer.toString();
+  }
+}
+
+/// Results of a duplicate detection scan
+class DuplicateDetectionResult {
+  /// Directory that was scanned
+  final String directory;
+
+  /// Whether the scan was recursive
+  final bool recursive;
+
+  /// Total number of videos scanned
+  final int totalVideosScanned;
+
+  /// Groups of potential duplicates found
+  final List<VideoDuplicateGroup> duplicateGroups;
+
+  /// Videos that aren't part of any duplicate group
+  final List<VideoMetadataResult> uniqueVideos;
+
+  DuplicateDetectionResult({
+    required this.directory,
+    required this.recursive,
+    required this.totalVideosScanned,
+    required this.duplicateGroups,
+    required this.uniqueVideos,
+  });
+
+  /// Number of videos that are potential duplicates
+  int get totalPotentialDuplicates =>
+      duplicateGroups.fold(0, (sum, group) => sum + group.videos.length - 1);
+
+  /// Total space that could be saved by removing duplicates
+  int get totalPotentialSpaceSaving =>
+      duplicateGroups.fold(0, (sum, group) => sum + group.potentialSpaceSaving);
+
+  /// Get a formatted string showing the total potential space saving
+  String get totalPotentialSpaceSavingFormatted {
+    final bytes = totalPotentialSpaceSaving;
+    if (bytes < 1024) return "$bytes B";
+    if (bytes < 1024 * 1024) {
+      return "${(bytes / 1024).toStringAsFixed(2)} KB";
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return "${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB";
+    }
+    return "${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
+  }
+
+  /// Returns a summary of the duplicate detection results
+  String getSummary() {
+    final buffer = StringBuffer();
+    buffer.writeln('Duplicate Detection Report');
+    buffer.writeln('--------------------------');
+    buffer.writeln('Directory: $directory ${recursive ? "(recursive)" : ""}');
+    buffer.writeln('Total videos scanned: $totalVideosScanned');
+    buffer.writeln('Unique videos: ${uniqueVideos.length}');
+    buffer.writeln('Potential duplicate groups: ${duplicateGroups.length}');
+    buffer.writeln('Total potential duplicates: $totalPotentialDuplicates');
+    buffer.writeln(
+      'Potential space saving: $totalPotentialSpaceSavingFormatted',
+    );
+
+    if (duplicateGroups.isNotEmpty) {
+      buffer.writeln('\nDuplicate groups overview:');
+      for (var i = 0; i < duplicateGroups.length; i++) {
+        final group = duplicateGroups[i];
+        buffer.writeln(
+          'Group ${i + 1}: ${group.videos.length} videos, '
+          'potential saving: ${group.potentialSpaceSavingFormatted}',
+        );
+      }
+    }
+
+    return buffer.toString();
+  }
+
+  /// Returns detailed information about all duplicate groups
+  String getDetailedReport() {
+    final buffer = StringBuffer();
+    buffer.write(getSummary());
+
+    if (duplicateGroups.isNotEmpty) {
+      buffer.writeln('\nDetailed Groups:');
+      for (var i = 0; i < duplicateGroups.length; i++) {
+        buffer.writeln('\nGroup ${i + 1}:');
+        buffer.writeln(duplicateGroups[i].getSummary());
+      }
     }
 
     return buffer.toString();
