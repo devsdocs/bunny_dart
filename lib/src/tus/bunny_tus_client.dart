@@ -300,6 +300,17 @@ class BunnyTusClient extends TusClient {
     }
   }
 
+  /// Get the current offset for progress tracking (especially for resumed uploads)
+  Future<int> getCurrentOffset() async {
+    if (uploadUrl_ == null) return 0;
+
+    try {
+      return await _getOffset();
+    } catch (e) {
+      return 0; // Return 0 if we can't get the offset
+    }
+  }
+
   /// Override to add checksum header when uploading chunks
   @override
   Future<Uint8List> getData() async {
