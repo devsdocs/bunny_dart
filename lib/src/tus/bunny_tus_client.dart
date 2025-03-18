@@ -333,7 +333,7 @@ class BunnyTusClient extends TusClient {
 
       try {
         await metadataStore.setMetadata(fingerprint, metadata);
-      } catch (e) {}
+      } catch (_) {}
     }
 
     await super.onCompleteUpload();

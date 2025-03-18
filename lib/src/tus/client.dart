@@ -148,11 +148,32 @@ class TusClient extends TusClientBase {
     final tester = SpeedTestDart();
 
     try {
-      final settings = await tester.getSettings();
+      // Add a timeout to prevent hanging
+      final settings = await tester.getSettings().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Speed test settings request timed out');
+        },
+      );
       final servers = settings.servers;
 
-      bestServers = await tester.getBestServers(servers: servers);
-    } catch (_) {
+      if (servers.isEmpty) {
+        // No servers available
+        bestServers = null;
+        return;
+      }
+
+      // Limit the number of servers to test for efficiency
+      bestServers = await tester
+          .getBestServers(servers: servers)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              // If timeout occurs, use any servers we have rather than none
+              return servers.take(3).toList();
+            },
+          );
+    } catch (e) {
       bestServers = null;
     }
   }
@@ -161,16 +182,29 @@ class TusClient extends TusClientBase {
   Future<void> uploadSpeedTest() async {
     final tester = SpeedTestDart();
 
-    // If bestServers are null or they are empty, we will not measure upload speed
-    // as it wouldn't be accurate at all
-    if (bestServers == null || (bestServers?.isEmpty ?? true)) {
+    // If bestServers are null or empty, we will not measure upload speed
+    if (bestServers == null || bestServers!.isEmpty) {
       uploadSpeed = null;
       return;
     }
 
     try {
-      uploadSpeed = await tester.testUploadSpeed(servers: bestServers ?? []);
-    } catch (_) {
+      // Add timeout to prevent hanging
+      uploadSpeed = await tester
+          .testUploadSpeed(servers: bestServers!)
+          .timeout(
+            const Duration(seconds: 20),
+            onTimeout: () {
+              throw TimeoutException('Upload speed test timed out');
+            },
+          );
+
+      // Validate the result
+      if (uploadSpeed == null || uploadSpeed! <= 0) {
+        // Invalid result, reset to null
+        uploadSpeed = null;
+      }
+    } catch (e) {
       uploadSpeed = null;
     }
   }
@@ -287,32 +321,37 @@ class TusClient extends TusClientBase {
           onDone: () {
             if (onProgress != null && !pauseUpload_ && !uploadCancelled) {
               final totalSent = min(_offset, totalBytes);
-              double workedUploadSpeed_ = 1.0;
+              double bytesPerMs = 1.0;
 
               if (uploadSpeed != null) {
-                workedUploadSpeed_ = uploadSpeed! * 1000000;
+                // Convert from Mbps to bytes per millisecond
+                // Mbps = 1,000,000 bits per second = 125,000 bytes per second
+                // = 125 bytes per millisecond
+                bytesPerMs = uploadSpeed! * 125;
               } else {
                 // Calculate a safe upload speed with guard against division by zero
                 final elapsedMs = uploadStopwatch.elapsedMilliseconds;
                 if (elapsedMs > 0) {
-                  workedUploadSpeed_ = totalSent / elapsedMs;
+                  bytesPerMs = totalSent / elapsedMs;
                 }
-                // Ensure we have a positive value
-                workedUploadSpeed_ =
-                    workedUploadSpeed_.isFinite && workedUploadSpeed_ > 0
-                        ? workedUploadSpeed_
-                        : 1.0;
               }
+
+              // Ensure we have a positive value
+              bytesPerMs =
+                  bytesPerMs.isFinite && bytesPerMs > 0 ? bytesPerMs : 1.0;
 
               final remainData = totalBytes - totalSent;
 
               // Calculate a safe estimate with guards against invalid values
               Duration estimate;
               try {
-                final seconds = (remainData / workedUploadSpeed_).round();
+                final milliseconds = (remainData / bytesPerMs).round();
                 // Ensure we have a valid, non-negative duration
                 estimate = Duration(
-                  seconds: seconds.isFinite && seconds >= 0 ? seconds : 0,
+                  milliseconds:
+                      milliseconds.isFinite && milliseconds >= 0
+                          ? milliseconds
+                          : 0,
                 );
               } catch (e) {
                 // Fallback if any calculation error occurs
