@@ -1,12 +1,4 @@
-import 'dart:async';
-import 'dart:io';
-import 'dart:math' show min;
-import 'dart:typed_data' show BytesBuilder, Uint8List;
-
-import 'package:bunny_dart/bunny_dart.dart';
-import 'package:bunny_dart/src/tool/double.dart';
-import 'package:dio/dio.dart';
-import 'package:speed_test_dart/speed_test_dart.dart';
+part of 'bunny_tus_client.dart';
 
 /// This class is used for creating or resuming uploads.
 class TusClient extends TusClientBase {
@@ -275,7 +267,7 @@ class TusClient extends TusClientBase {
 
     // Original sequential upload
     while (!pauseUpload_ && !uploadCancelled && _offset < totalBytes) {
-      await _performSingleChunkUpload(
+      await _performUpload(
         onComplete: onComplete,
         onProgress: onProgress,
         headers: headers,
@@ -285,7 +277,7 @@ class TusClient extends TusClientBase {
     }
   }
 
-  Future<void> _performSingleChunkUpload({
+  Future<void> _performUpload({
     Function(int, int, double, Duration)? onProgress,
     Function()? onComplete,
     Map<String, String>? headers,

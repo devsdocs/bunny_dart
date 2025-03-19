@@ -1,5 +1,4 @@
-import 'dart:convert';
-import 'dart:io';
+part of 'bunny_tus_client.dart';
 
 /// Implementations of this interface are used to lookup a
 /// [fingerprint] with the corresponding [file].

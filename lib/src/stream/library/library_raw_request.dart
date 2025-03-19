@@ -1,26 +1,26 @@
-import 'package:bunny_dart/bunny_dart.dart';
-import 'package:cross_file/cross_file.dart';
-import 'package:dio/dio.dart';
+part of 'bunny_stream_library.dart';
 
-part 'extension/bunny_tus_upload.dart';
+const videoBase = 'video.bunnycdn.com';
 
-class BunnyStreamLibrary {
-  static const _base = 'video.bunnycdn.com';
+class _BunnyStreamLibrary {
+  _BunnyStreamLibrary(String streamKey, {required int libraryId})
+    : _streamKey = streamKey,
 
-  // BunnyStreamCollection collection(String collectionId) =>
-  //     BunnyStreamCollection(
-  //       _streamKey,
-  //       libraryId: _libraryId,
-  //       collectionId: collectionId,
-  //     );
+      _libraryId = libraryId;
 
-  void _sendError(String message) {
-    errorPrint(message, isPrint: _errorPrint);
-  }
+  final int _libraryId;
+  final String _streamKey;
+
+  Options get _defaultOptions => Options(headers: {'AccessKey': _streamKey});
+
+  Options get _optionsWithPostBody => Options(
+    headers: {'AccessKey': _streamKey},
+    contentType: Headers.jsonContentType,
+  );
 
   Uri _libraryMethod([String? path, Map<String, dynamic>? queryParameters]) =>
       Uri.https(
-        _base,
+        videoBase,
         '/library/$_libraryId${path ?? ''}',
         queryParameters?.map(
           (k, v) => MapEntry(k, v is int ? v.toString() : v),
@@ -32,29 +32,10 @@ class BunnyStreamLibrary {
     String? path,
     Map<String, dynamic>? queryParameters,
   ]) => Uri.https(
-    _base,
+    videoBase,
     '/library/$_libraryId/videos/$videoId${path ?? ''}',
     queryParameters?.map((k, v) => MapEntry(k, v is int ? v.toString() : v)),
   );
-
-  Options get _defaultOptions => Options(headers: {'AccessKey': _streamKey});
-
-  Options get _optionsWithPostBody => Options(
-    headers: {'AccessKey': _streamKey},
-    contentType: Headers.jsonContentType,
-  );
-
-  final int _libraryId;
-  final String _streamKey;
-  final bool _errorPrint;
-
-  BunnyStreamLibrary(
-    String streamKey, {
-    required int libraryId,
-    bool errorPrint = false,
-  }) : _streamKey = streamKey,
-       _errorPrint = errorPrint,
-       _libraryId = libraryId;
 
   /// Get a video from the library.
   ///
@@ -63,16 +44,6 @@ class BunnyStreamLibrary {
     /// The video ID to retrieve.
     String videoId,
   ) async => await dio.get(_videoMethod(videoId), opt: _defaultOptions);
-
-  Future<Video?> getVideo(String videoId) async {
-    try {
-      final response = await getVideoResponse(videoId);
-      return Video.fromMap(response.data!);
-    } catch (e, s) {
-      _sendError('Error: $e\nStack: $s');
-      return null;
-    }
-  }
 
   /// Update a video in the library.
   ///
@@ -110,30 +81,6 @@ class BunnyStreamLibrary {
     },
   );
 
-  Future<CommonResponse?> updateVideo(
-    String videoId, {
-    String? title,
-    String? collectionId,
-    List<VideoChapter>? chapters,
-    List<VideoMoment>? moments,
-    List<VideoMetaTag>? metaTags,
-  }) async {
-    try {
-      final response = await updateVideoResponse(
-        videoId,
-        title: title,
-        collectionId: collectionId,
-        chapters: chapters,
-        moments: moments,
-        metaTags: metaTags,
-      );
-      return CommonResponse.fromMap(response.data!);
-    } catch (e, s) {
-      _sendError('Error: $e\nStack: $s');
-      return null;
-    }
-  }
-
   /// Delete a video from the library.
   ///
   /// https://docs.bunny.net/reference/video_deletevideo
@@ -141,16 +88,6 @@ class BunnyStreamLibrary {
     /// The video ID to delete.
     String videoId,
   ) async => await dio.delete(_videoMethod(videoId), opt: _defaultOptions);
-
-  Future<CommonResponse?> deleteVideo(String videoId) async {
-    try {
-      final response = await deleteVideoResponse(videoId);
-      return CommonResponse.fromMap(response.data!);
-    } catch (e, s) {
-      _sendError('Error: $e\nStack: $s');
-      return null;
-    }
-  }
 
   /// Upload a video to the library.
   ///
@@ -169,26 +106,6 @@ class BunnyStreamLibrary {
     String? codecs,
   }) async => await dio.post(_videoMethod(videoId), opt: _defaultOptions);
 
-  Future<CommonResponse?> uploadVideo(
-    String videoId, {
-    bool jitEnabled = false,
-    String? resolutions,
-    String? codecs,
-  }) async {
-    try {
-      final response = await uploadVideoResponse(
-        videoId,
-        jitEnabled: jitEnabled,
-        resolutions: resolutions,
-        codecs: codecs,
-      );
-      return CommonResponse.fromMap(response.data!);
-    } catch (e, s) {
-      _sendError('Error: $e\nStack: $s');
-      return null;
-    }
-  }
-
   /// Get Video Heatmap
   ///
   /// https://docs.bunny.net/reference/video_getheatmap
@@ -196,15 +113,6 @@ class BunnyStreamLibrary {
     String videoId,
   ) async =>
       await dio.get(_videoMethod(videoId, '/heatmap'), opt: _defaultOptions);
-
-  // Future<VideoHeatmap?> getVideoHeatmap(String videoId) async {
-  //   try {
-  //     final response = await getVideoHeatmapResponse(videoId);
-  //     return VideoHeatmap.fromMap(response.data!);
-  //   } catch (e,s) {
-  //     return null;
-  //   }
-  // }
 
   /// Get Video play data
   ///
@@ -219,16 +127,6 @@ class BunnyStreamLibrary {
     /// The expiress to retrieve.
     int expiress = 0,
   }) async => await dio.get(_videoMethod(videoId, '/play'));
-
-  Future<VideoPlayData?> getVideoPlayData(String videoId) async {
-    try {
-      final response = await getVideoPlayDataResponse(videoId);
-      return VideoPlayData.fromMap(response.data!);
-    } catch (e, s) {
-      _sendError('Error: $e\nStack: $s');
-      return null;
-    }
-  }
 
   /// Get Video Statistics
   ///
@@ -255,25 +153,6 @@ class BunnyStreamLibrary {
     opt: _defaultOptions,
   );
 
-  // Future<VideoStatistics?> getVideoStatistics({
-  //   DateTime? dateFrom,
-  //   DateTime? dateTo,
-  //   bool hourly = false,
-  //   String? videoGuid,
-  // }) async {
-  //   try {
-  //     final response = await getVideoStatisticsResponse(
-  //       dateFrom: dateFrom,
-  //       dateTo: dateTo,
-  //       hourly: hourly,
-  //       videoGuid: videoGuid,
-  //     );
-  //     return VideoStatistics.fromMap(response.data!);
-  //   } catch (e,s) {
-  //     return null;
-  //   }
-  // }
-
   /// Reencode Video
   ///
   /// https://docs.bunny.net/reference/video_reencodevideo
@@ -282,16 +161,6 @@ class BunnyStreamLibrary {
     String videoId,
   ) async =>
       await dio.post(_videoMethod(videoId, '/reencode'), opt: _defaultOptions);
-
-  Future<Video?> reencodeVideo(String videoId) async {
-    try {
-      final response = await reencodeVideoResponse(videoId);
-      return Video.fromMap(response.data!);
-    } catch (e, s) {
-      _sendError('Error: $e\nStack: $s');
-      return null;
-    }
-  }
 
   /// Add output codec to video
   ///
@@ -312,22 +181,6 @@ class BunnyStreamLibrary {
     opt: _defaultOptions,
   );
 
-  Future<Video?> addOutputCodec(
-    String videoId, {
-    required int outputCodec,
-  }) async {
-    try {
-      final response = await addOutputCodecResponse(
-        videoId,
-        outputCodec: outputCodec,
-      );
-      return Video.fromMap(response.data!);
-    } catch (e, s) {
-      _sendError('Error: $e\nStack: $s');
-      return null;
-    }
-  }
-
   /// Repackage Video
   ///
   /// https://docs.bunny.net/reference/video_repackage
@@ -339,22 +192,6 @@ class BunnyStreamLibrary {
     bool keepOriginalFiles = true,
   }) async =>
       await dio.post(_videoMethod(videoId, '/repackage'), opt: _defaultOptions);
-
-  Future<Video?> repackageVideo(
-    String videoId, {
-    bool keepOriginalFiles = true,
-  }) async {
-    try {
-      final response = await repackageVideoResponse(
-        videoId,
-        keepOriginalFiles: keepOriginalFiles,
-      );
-      return Video.fromMap(response.data!);
-    } catch (e, s) {
-      _sendError('Error: $e\nStack: $s');
-      return null;
-    }
-  }
 
   /// List all videos in the library.
   ///
@@ -384,26 +221,4 @@ class BunnyStreamLibrary {
     }),
     opt: _defaultOptions,
   );
-
-  Future<ListVideos?> listVideos({
-    int page = 1,
-    int itemsPerPage = 100,
-    String? search,
-    String? collectionId,
-    String orderBy = 'date',
-  }) async {
-    try {
-      final response = await listVideosResponse(
-        page: page,
-        itemsPerPage: itemsPerPage,
-        search: search,
-        collectionId: collectionId,
-        orderBy: orderBy,
-      );
-      return ListVideos.fromMap(response.data!);
-    } catch (e, s) {
-      _sendError('Error: $e\nStack: $s');
-      return null;
-    }
-  }
 }

@@ -1,4 +1,4 @@
-import 'dart:math';
+part of 'bunny_tus_client.dart';
 
 enum RetryScale {
   /// Same time interval between every retry.

@@ -1,10 +1,4 @@
-import 'dart:convert';
-
-import 'package:bunny_dart/src/tus/client.dart';
-import 'package:bunny_dart/src/tus/retry_scale.dart';
-import 'package:bunny_dart/src/tus/store.dart';
-import 'package:cross_file/cross_file.dart';
-import 'package:speed_test_dart/classes/server.dart';
+part of 'bunny_tus_client.dart';
 
 abstract class TusClientBase {
   /// Version of the tus protocol used by the client. The remote server needs to

@@ -1,4 +1,4 @@
-part of '../bunny_stream_library.dart';
+part of 'bunny_stream_library.dart';
 
 extension BunnyTUSUpload on BunnyStreamLibrary {
   Future<BunnyTusClient?> createVideoWithTusUpload({
@@ -16,8 +16,8 @@ extension BunnyTUSUpload on BunnyStreamLibrary {
     try {
       // First create the video entry to get the ID
       final response = await dio.post(
-        _libraryMethod('/videos'),
-        opt: _optionsWithPostBody,
+        rawRequest._libraryMethod('/videos'),
+        opt: rawRequest._optionsWithPostBody,
         data: {
           'title': title,
           if (collectionId != null) 'collectionId': collectionId,
