@@ -84,7 +84,8 @@ class BunnyTusClient extends TusClient {
   }
 
   /// Get the required Bunny.net authorization headers
-  Map<String, String> getBunnyAuthHeaders() {
+  @override
+  Map<String, String> customHeaders() {
     return {
       'AuthorizationSignature': generateAuthorizationSignature(),
       'AuthorizationExpire': expirationTime.toString(),
@@ -96,7 +97,7 @@ class BunnyTusClient extends TusClient {
   @override
   Future<void> createUpload() async {
     // Set Bunny.net specific headers before creating upload
-    headers = getBunnyAuthHeaders();
+    headers = customHeaders();
 
     // Set Bunny.net specific metadata
     metadata = {
@@ -253,7 +254,7 @@ class BunnyTusClient extends TusClient {
   @override
   Future<int> _getOffset() async {
     // Always get fresh authentication headers for each request
-    final offsetHeaders = Map<String, String>.from(getBunnyAuthHeaders())
+    final offsetHeaders = Map<String, String>.from(customHeaders())
       ..addAll({"Tus-Resumable": tusVersion, "Cache-Control": "no-store"});
 
     if (uploadUrl_ == null) {
@@ -330,7 +331,7 @@ class BunnyTusClient extends TusClient {
     final data = await super.getData();
 
     // Update headers with fresh authentication for each chunk
-    final currentHeaders = Map<String, String>.from(getBunnyAuthHeaders());
+    final currentHeaders = Map<String, String>.from(customHeaders());
 
     // If checksumAlgorithm is specified, calculate and add the checksum header
     final checksum = _generateChecksum(data);

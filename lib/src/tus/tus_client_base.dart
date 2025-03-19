@@ -34,6 +34,9 @@ abstract class TusClientBase {
     this.enableCompression = true,
   });
 
+  /// Custom headers to be sent with the request
+  Map<String, String> customHeaders();
+
   /// Create a new upload URL
   Future<void> createUpload();
 

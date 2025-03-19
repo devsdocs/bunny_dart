@@ -453,17 +453,22 @@ class TusClient extends TusClientBase {
     _uploadMetadata = generateMetadata();
   }
 
+  @override
+  Map<String, String> customHeaders() {
+    // If this is BunnyTusClient, add Bunny.net authorization headers
+    if (this is BunnyTusClient) {
+      return (this as BunnyTusClient).customHeaders();
+    }
+    return {};
+  }
+
   /// Get offset from server throwing [ProtocolException] on error
   Future<int> _getOffset() async {
     try {
       final offsetHeaders = Map<String, String>.from(headers ?? {});
 
-      // If this is BunnyTusClient, add Bunny.net authorization headers
-      if (this is BunnyTusClient) {
-        offsetHeaders.addAll((this as BunnyTusClient).getBunnyAuthHeaders());
-      }
-
       offsetHeaders.addAll({
+        ...customHeaders(),
         "Tus-Resumable": tusVersion,
         "Cache-Control": "no-store",
       });
