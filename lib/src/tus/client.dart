@@ -136,7 +136,7 @@ class TusClient extends TusClientBase {
   }
 
   @override
-  Future<void> setUploadTestServers() async {
+  Future<void> uploadSpeedTest() async {
     final tester = SpeedTestDart();
 
     try {
@@ -165,22 +165,12 @@ class TusClient extends TusClientBase {
               return servers.take(3).toList();
             },
           );
-    } catch (e) {
-      bestServers = null;
-    }
-  }
 
-  @override
-  Future<void> uploadSpeedTest() async {
-    final tester = SpeedTestDart();
+      if (bestServers == null || bestServers!.isEmpty) {
+        uploadSpeed = null;
+        return;
+      }
 
-    // If bestServers are null or empty, we will not measure upload speed
-    if (bestServers == null || bestServers!.isEmpty) {
-      uploadSpeed = null;
-      return;
-    }
-
-    try {
       // Add timeout to prevent hanging
       uploadSpeed = await tester
           .testUploadSpeed(servers: bestServers!)
@@ -197,6 +187,7 @@ class TusClient extends TusClientBase {
         uploadSpeed = null;
       }
     } catch (e) {
+      bestServers = null;
       uploadSpeed = null;
     }
   }
@@ -218,7 +209,6 @@ class TusClient extends TusClientBase {
     final isResumable_ = await isResumable();
 
     if (measureUploadSpeed) {
-      await setUploadTestServers();
       await uploadSpeedTest();
     }
 

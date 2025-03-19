@@ -65,9 +65,6 @@ abstract class TusClientBase {
     return '${file.path.replaceAll(RegExp(r"\W+"), '.')}.fingerprint';
   }
 
-  /// Sets to servers to test for upload speed
-  Future<void> setUploadTestServers();
-
   /// Measures the upload speed of the device
   Future<void> uploadSpeedTest();
 
