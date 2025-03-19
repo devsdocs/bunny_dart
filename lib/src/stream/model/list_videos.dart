@@ -1,7 +1,7 @@
 // ignore_for_file: avoid_dynamic_calls, argument_type_not_assignable
 
 import 'package:bunny_dart/src/common/common_object.dart';
-import 'package:bunny_dart/src/common/video.dart';
+import 'package:bunny_dart/src/stream/model/video.dart';
 
 class ListVideos extends CommonObject {
   final int _totalItems;

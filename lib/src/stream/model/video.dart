@@ -1,11 +1,11 @@
 // ignore_for_file: avoid_dynamic_calls, argument_type_not_assignable
 
-import 'package:bunny_dart/src/common/caption.dart';
+import 'package:bunny_dart/src/stream/model/caption.dart';
 import 'package:bunny_dart/src/common/common_object.dart';
-import 'package:bunny_dart/src/common/transcoding_messages.dart';
-import 'package:bunny_dart/src/common/video_chapter.dart';
-import 'package:bunny_dart/src/common/video_meta_tag.dart';
-import 'package:bunny_dart/src/common/video_moment.dart';
+import 'package:bunny_dart/src/stream/model/transcoding_messages.dart';
+import 'package:bunny_dart/src/stream/model/video_chapter.dart';
+import 'package:bunny_dart/src/stream/model/video_meta_tag.dart';
+import 'package:bunny_dart/src/stream/model/video_moment.dart';
 
 class Video extends CommonObject {
   /// The ID of the video library that the video belongs to
