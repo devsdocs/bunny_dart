@@ -18,6 +18,8 @@ extension VideoHelper on Video {
   ///
   /// Returns a map of resolution and direct MP4 link.
   ///
+  /// https://docs.bunny.net/docs/stream-video-storage-structure
+  ///
   /// https://support.bunny.net/hc/en-us/articles/360016055099-How-to-sign-URLs-for-BunnyCDN-Token-Authentication
   Map<String, String> getDirectMp4Links(
     String baseUrl, {
