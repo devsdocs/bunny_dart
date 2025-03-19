@@ -1,7 +1,7 @@
 // ignore_for_file: avoid_dynamic_calls, argument_type_not_assignable
 
-import 'package:bunny_dart/src/stream/model/caption.dart';
 import 'package:bunny_dart/src/common/common_object.dart';
+import 'package:bunny_dart/src/stream/model/caption.dart';
 import 'package:bunny_dart/src/stream/model/transcoding_messages.dart';
 import 'package:bunny_dart/src/stream/model/video_chapter.dart';
 import 'package:bunny_dart/src/stream/model/video_meta_tag.dart';

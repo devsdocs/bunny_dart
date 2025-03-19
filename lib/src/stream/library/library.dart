@@ -13,7 +13,7 @@ import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 
 part 'raw.dart';
-part 'tus_upload.dart';
+part 'extension.dart';
 
 class BunnyStreamLibrary {
   BunnyStreamCollection collection(String collectionId) =>

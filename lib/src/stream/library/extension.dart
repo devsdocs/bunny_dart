@@ -1,5 +1,39 @@
 part of 'library.dart';
 
+extension BunnyStreamLibraryHelper on BunnyStreamLibrary {
+  Future<List<Video>> getAllVideos({
+    int itemsPerPageArg = 1000,
+    int page = 1,
+  }) async {
+    // 1000 is the maximum itemsPerPage
+    final itemsPerPage = itemsPerPageArg.clamp(1, 1000);
+    final videos = <Video>[];
+    final fetch = await listVideos(itemsPerPage: itemsPerPage, page: page);
+
+    if (fetch == null || fetch.items == null) {
+      return videos;
+    }
+    if (fetch.items!.isEmpty) {
+      return videos;
+    }
+
+    videos.addAll(fetch.items!);
+
+    final hasMoreItems = page * itemsPerPage < fetch.totalItems;
+
+    if (hasMoreItems) {
+      final nextPage = page + 1;
+      final nextVideos = await getAllVideos(
+        itemsPerPageArg: itemsPerPage,
+        page: nextPage,
+      );
+      videos.addAll(nextVideos);
+    }
+
+    return videos;
+  }
+}
+
 extension BunnyTUSUpload on BunnyStreamLibrary {
   Future<BunnyTusClient?> createVideoWithTusUpload({
     required String title,
