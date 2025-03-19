@@ -6,72 +6,6 @@ import 'package:bunny_dart/src/stream/model/video.dart';
 import 'package:crypto/crypto.dart';
 
 extension VideoHelper on Video {
-  /// Get direct MP4 links for the video.
-  ///
-  /// [baseUrl] is the CDN domain.
-  ///
-  /// [cdnToken] is the token from BunnyCDN.
-  ///
-  /// [expiredAt] is the expiry date for the token.
-  ///
-  /// [pathBased] is whether the token is path-based or not.
-  ///
-  /// Returns a map of resolution and direct MP4 link.
-  ///
-  /// https://docs.bunny.net/docs/stream-video-storage-structure
-  ///
-  /// https://support.bunny.net/hc/en-us/articles/360016055099-How-to-sign-URLs-for-BunnyCDN-Token-Authentication
-  Map<String, String> getDirectMp4Links(
-    String baseUrl, {
-    required String cdnToken,
-    required DateTime expiredAt,
-    bool pathBased = true,
-  }) {
-    if (!hasMP4Fallback) {
-      return {};
-    }
-    if (availableResolutions == null) {
-      return {};
-    }
-    if (availableResolutions!.isEmpty) {
-      return {};
-    }
-    final expiry = (expiredAt.millisecondsSinceEpoch ~/ 1000).toString();
-
-    final links = <String, String>{};
-
-    for (final q in availableResolutions!.split(',')) {
-      final path = '/$guid/play_$q.mp4';
-
-      final token = base64Encode(
-            sha256.convert(utf8.encode(cdnToken + path + expiry)).bytes,
-          )
-          .replaceAll('\n', '')
-          .replaceAll('+', '-')
-          .replaceAll('/', '_')
-          .replaceAll('=', '');
-
-      if (pathBased) {
-        final url = Uri.https(baseUrl, '', {
-          'bcdn_token': token,
-          'expires': expiry,
-          'token_path': path,
-        });
-
-        links[q] = Uri.decodeFull(url.toString()).replaceAll('?', '/');
-      } else {
-        final url = Uri.https(baseUrl, path, {
-          'token': token,
-          'expires': expiry,
-        });
-
-        links[q] = Uri.decodeFull(url.toString());
-      }
-    }
-
-    return links;
-  }
-
   /// Human readable duration of the video.
   String get humanReadableDuration {
     final duration = length;
@@ -137,6 +71,60 @@ extension VideoHelper on Video {
     }).toList();
   }
 
+  /// Get embed link for the video with customizable parameters and token.
+  ///
+  /// https://docs.bunny.net/docs/stream-embed-token-authentication
+  String getDefaultEmbedViewLinkWithToken(
+    String viewToken, {
+    required DateTime expiredAt,
+    bool? autoplay,
+    String? captions,
+    bool? preload,
+    String? t,
+    bool? chromecast,
+    bool? disableAirplay,
+    bool? disableIosPlayer,
+    bool? showHeatmap,
+    bool? muted,
+    bool? loop,
+    bool? playsinline,
+    bool? showSpeed,
+  }) {
+    if (guid == null) {
+      return '';
+    }
+
+    final embedLink = Uri.parse(
+      getDefaultEmbedViewLink(
+        autoplay: autoplay,
+        captions: captions,
+        preload: preload,
+        t: t,
+        chromecast: chromecast,
+        disableAirplay: disableAirplay,
+        disableIosPlayer: disableIosPlayer,
+        showHeatmap: showHeatmap,
+        muted: muted,
+        loop: loop,
+        playsinline: playsinline,
+        showSpeed: showSpeed,
+      ),
+    );
+
+    final expiryTimeInSeconds =
+        (expiredAt.millisecondsSinceEpoch ~/ 1000).toString();
+
+    final sha256Hex =
+        sha256
+            .convert(utf8.encode(viewToken + guid + expiryTimeInSeconds))
+            .toString();
+
+    embedLink.queryParameters['token'] = sha256Hex;
+    embedLink.queryParameters['expires'] = expiryTimeInSeconds;
+
+    return Uri.decodeFull(embedLink.toString());
+  }
+
   /// Get embed link for the video with customizable parameters.
   ///
   /// https://docs.bunny.net/docs/stream-embedding-videos
@@ -164,8 +152,7 @@ extension VideoHelper on Video {
   /// [playsinline] Allows video to play inline on mobile devices
   ///
   /// [showSpeed] Shows speed control within the player when true
-  String getDefaultEmbedLink(
-    String baseUrl, {
+  String getDefaultEmbedViewLink({
     bool? autoplay,
     String? captions,
     bool? preload,
@@ -212,6 +199,171 @@ extension VideoHelper on Video {
         '/embed/$videoLibraryId/$guid',
         queryParams,
       ).toString(),
+    );
+  }
+
+  /// Get direct play URL for the video.
+  ///
+  /// Format: https://video.bunnycdn.com/play/{video_library_id}/{video_id}
+  String getDirectPlayUrl() {
+    if (guid == null) {
+      return '';
+    }
+    return Uri.decodeFull(
+      Uri.https('video.bunnycdn.com', '/play/$videoLibraryId/$guid').toString(),
+    );
+  }
+
+  /// Get original file URL for the video.
+  ///
+  /// Format: https://{pull_zone_url}.b-cdn.net/{video_id}/original
+  String getOriginalFileUrl(String baseUrl) {
+    if (guid == null) {
+      return '';
+    }
+    return Uri.decodeFull(Uri.https(baseUrl, '/$guid/original').toString());
+  }
+
+  /// Get HLS playlist URL for the video.
+  ///
+  /// Format: https://{pull_zone_url}.b-cdn.net/{video_id}/playlist.m3u8
+  String getHlsPlaylistUrl(String baseUrl) {
+    if (guid == null) {
+      return '';
+    }
+    return Uri.decodeFull(
+      Uri.https(baseUrl, '/$guid/playlist.m3u8').toString(),
+    );
+  }
+
+  /// Get thumbnail URL for the video.
+  ///
+  /// Format: https://{pull_zone_url}.b-cdn.net/{video_id}/{thumbnail_file_name}
+  String getThumbnailUrl(
+    String baseUrl, {
+    String thumbnailFileName = 'thumbnail.jpg',
+  }) {
+    if (guid == null) {
+      return '';
+    }
+    return Uri.decodeFull(
+      Uri.https(baseUrl, '/$guid/$thumbnailFileName').toString(),
+    );
+  }
+
+  /// Get preview animation URL (WebP) for the video.
+  ///
+  /// Format: https://{pull_zone_url}.b-cdn.net/{video_id}/preview.webp
+  String getPreviewAnimationUrl(String baseUrl) {
+    if (guid == null) {
+      return '';
+    }
+    return Uri.decodeFull(Uri.https(baseUrl, '/$guid/preview.webp').toString());
+  }
+
+  /// Get MP4 video URL for a specific resolution.
+  ///
+  /// Format: https://{pull_zone_url}.b-cdn.net/{video_id}/play_{resolution_height}p.mp4
+  String getMp4VideoUrl(String baseUrl, String resolution) {
+    if (guid == null) {
+      return '';
+    }
+    return Uri.decodeFull(
+      Uri.https(baseUrl, '/$guid/play_$resolution.mp4').toString(),
+    );
+  }
+
+  /// Get all available MP4 video URLs.
+  ///
+  /// Returns a map of resolution to URL.
+  Map<String, String> getAllMp4VideoUrls(String baseUrl) {
+    if (!hasMP4Fallback ||
+        availableResolutions == null ||
+        availableResolutions!.isEmpty) {
+      return {};
+    }
+
+    final links = <String, String>{};
+    for (final resolution in availableResolutions!.split(',')) {
+      links[resolution] = getMp4VideoUrl(baseUrl, resolution);
+    }
+
+    return links;
+  }
+
+  /// Get direct MP4 links for the video.
+  ///
+  /// [baseUrl] is the CDN domain.
+  ///
+  /// [cdnToken] is the token from BunnyCDN.
+  ///
+  /// [expiredAt] is the expiry date for the token.
+  ///
+  /// [pathBased] is whether the token is path-based or not.
+  ///
+  /// Returns a map of resolution and direct MP4 link.
+  ///
+  /// https://support.bunny.net/hc/en-us/articles/360016055099-How-to-sign-URLs-for-BunnyCDN-Token-Authentication
+  Map<String, String> getAllMp4VideoUrlsWithCDNToken(
+    String baseUrl, {
+    required String cdnToken,
+    required DateTime expiredAt,
+    bool pathBased = true,
+  }) {
+    if (!hasMP4Fallback) {
+      return {};
+    }
+    if (availableResolutions == null) {
+      return {};
+    }
+    if (availableResolutions!.isEmpty) {
+      return {};
+    }
+    final expiry = (expiredAt.millisecondsSinceEpoch ~/ 1000).toString();
+
+    final links = <String, String>{};
+
+    for (final q in availableResolutions!.split(',')) {
+      final path = '/$guid/play_$q.mp4';
+
+      final token = base64Encode(
+            sha256.convert(utf8.encode(cdnToken + path + expiry)).bytes,
+          )
+          .replaceAll('\n', '')
+          .replaceAll('+', '-')
+          .replaceAll('/', '_')
+          .replaceAll('=', '');
+
+      if (pathBased) {
+        final url = Uri.https(baseUrl, '', {
+          'bcdn_token': token,
+          'expires': expiry,
+          'token_path': path,
+        });
+
+        links[q] = Uri.decodeFull(url.toString()).replaceAll('?', '/');
+      } else {
+        final url = Uri.https(baseUrl, path, {
+          'token': token,
+          'expires': expiry,
+        });
+
+        links[q] = Uri.decodeFull(url.toString());
+      }
+    }
+
+    return links;
+  }
+
+  /// Get subtitle file URL for a specific language.
+  ///
+  /// Format: https://{pull_zone_url}.b-cdn.net/{video_id}/captions/{language_code}.vtt
+  String getSubtitleFileUrl(String baseUrl, String languageCode) {
+    if (guid == null) {
+      return '';
+    }
+    return Uri.decodeFull(
+      Uri.https(baseUrl, '/$guid/captions/$languageCode.vtt').toString(),
     );
   }
 }
