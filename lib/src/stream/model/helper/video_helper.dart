@@ -136,6 +136,84 @@ extension VideoHelper on Video {
       }
     }).toList();
   }
+
+  /// Get embed link for the video with customizable parameters.
+  ///
+  /// https://docs.bunny.net/docs/stream-embedding-videos
+  ///
+  /// [autoplay] Controls whether the video should start playing automatically
+  ///
+  /// [captions] Controls the default captions file that will be shown
+  ///
+  /// [preload] Controls whether the video files are preloaded
+  ///
+  /// [t] Sets the video start time (accepts: "Xs", "1h20m45s", "hh:mm:ss", or seconds)
+  ///
+  /// [chromecast] Enables or disables Chromecast support
+  ///
+  /// [disableAirplay] Disables AirPlay support when true
+  ///
+  /// [disableIosPlayer] Disables the native iOS player when true
+  ///
+  /// [showHeatmap] Displays a heatmap on the progress bar when true
+  ///
+  /// [muted] If true, the player starts in mute mode
+  ///
+  /// [loop] Replays the video automatically after it ends when true
+  ///
+  /// [playsinline] Allows video to play inline on mobile devices
+  ///
+  /// [showSpeed] Shows speed control within the player when true
+  String getDefaultEmbedLink(
+    String baseUrl, {
+    bool? autoplay,
+    String? captions,
+    bool? preload,
+    String? t,
+    bool? chromecast,
+    bool? disableAirplay,
+    bool? disableIosPlayer,
+    bool? showHeatmap,
+    bool? muted,
+    bool? loop,
+    bool? playsinline,
+    bool? showSpeed,
+  }) {
+    if (guid == null) {
+      return '';
+    }
+
+    final queryParams = <String, String>{};
+
+    if (autoplay != null) queryParams['autoplay'] = autoplay.toString();
+    if (captions != null) queryParams['captions'] = captions;
+    if (preload != null) queryParams['preload'] = preload.toString();
+    if (t != null) queryParams['t'] = t;
+    if (chromecast != null) queryParams['chromecast'] = chromecast.toString();
+    if (disableAirplay != null) {
+      queryParams['disableAirplay'] = disableAirplay.toString();
+    }
+    if (disableIosPlayer != null) {
+      queryParams['disableIosPlayer'] = disableIosPlayer.toString();
+    }
+    if (showHeatmap != null) {
+      queryParams['showHeatmap'] = showHeatmap.toString();
+    }
+    if (muted != null) queryParams['muted'] = muted.toString();
+    if (loop != null) queryParams['loop'] = loop.toString();
+    if (playsinline != null) {
+      queryParams['playsinline'] = playsinline.toString();
+    }
+    if (showSpeed != null) queryParams['showSpeed'] = showSpeed.toString();
+
+    return Uri.decodeFull(
+      Uri.https(
+        'iframe.mediadelivery.net',
+        '/embed/$videoLibraryId/$guid',
+        queryParams,
+      ).toString(),
+    );
+  }
 }
 
 enum Resolution {
