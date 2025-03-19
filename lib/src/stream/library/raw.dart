@@ -1,4 +1,4 @@
-part of 'bunny_stream_library.dart';
+part of 'library.dart';
 
 const videoBase = 'video.bunnycdn.com';
 

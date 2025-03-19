@@ -5,15 +5,15 @@ import 'package:bunny_dart/src/common/video_chapter.dart';
 import 'package:bunny_dart/src/common/video_meta_tag.dart';
 import 'package:bunny_dart/src/common/video_moment.dart';
 import 'package:bunny_dart/src/common/video_play_data.dart';
-import 'package:bunny_dart/src/stream/collection/bunny_stream_collection.dart';
+import 'package:bunny_dart/src/stream/collection/collection.dart';
 import 'package:bunny_dart/src/tool/dio_proxy.dart';
 import 'package:bunny_dart/src/tool/verbose.dart';
 import 'package:bunny_dart/src/tus/bunny_tus_client.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 
-part 'bunny_tus_upload.dart';
-part 'library_raw_request.dart';
+part 'tus_upload.dart';
+part 'raw.dart';
 
 class BunnyStreamLibrary {
   BunnyStreamCollection collection(String collectionId) =>

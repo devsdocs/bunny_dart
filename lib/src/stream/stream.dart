@@ -1,4 +1,4 @@
-import 'package:bunny_dart/src/stream/library/bunny_stream_library.dart';
+import 'package:bunny_dart/src/stream/library/library.dart';
 
 class BunnyStream {
   final String _streamKey;
