@@ -5,7 +5,6 @@ const videoBase = 'video.bunnycdn.com';
 class _BunnyStreamLibrary {
   _BunnyStreamLibrary(String streamKey, {required int libraryId})
     : _streamKey = streamKey,
-
       _libraryId = libraryId;
 
   final int _libraryId;
