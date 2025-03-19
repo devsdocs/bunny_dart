@@ -250,6 +250,7 @@ class BunnyTusClient extends TusClient {
   }
 
   /// Add this function to handle checking offset specifically for Bunny.net
+  @override
   Future<int> _getOffset() async {
     // Always get fresh authentication headers for each request
     final offsetHeaders = Map<String, String>.from(getBunnyAuthHeaders())
