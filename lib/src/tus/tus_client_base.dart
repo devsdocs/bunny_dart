@@ -68,7 +68,7 @@ abstract class TusClientBase {
 
   /// Override this method to customize creating file fingerprint
   String? generateFingerprint() {
-    return file.path.replaceAll(RegExp(r"\W+"), '.');
+    return '${file.path.replaceAll(RegExp(r"\W+"), '.')}.fingerprint';
   }
 
   /// Sets to servers to test for upload speed
