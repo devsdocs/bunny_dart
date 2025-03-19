@@ -8,7 +8,7 @@ import 'package:bunny_dart/src/stream/model/video_moment.dart';
 import 'package:bunny_dart/src/stream/model/video_play_data.dart';
 import 'package:bunny_dart/src/tool/dio_proxy.dart';
 import 'package:bunny_dart/src/tool/verbose.dart';
-import 'package:bunny_dart/src/tus/bunny_tus_client.dart';
+import 'package:bunny_dart/src/stream/helper/tus/bunny_tus_client.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 
