@@ -2,6 +2,8 @@ import 'package:bunny_dart/bunny_dart.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 
+part 'extension/bunny_tus_upload.dart';
+
 class BunnyStreamLibrary {
   static const _base = 'video.bunnycdn.com';
 
@@ -403,111 +405,5 @@ class BunnyStreamLibrary {
       _sendError('Error: $e\nStack: $s');
       return null;
     }
-  }
-}
-
-extension BunnyTUSUpload on BunnyStreamLibrary {
-  /// Create a video with TUS upload support
-  /// First creates the video entry and then provides a TUS client for uploading
-  /// ``` dart
-  /// final bunnyStream = BunnyStreamLibrary('apiKey', libraryId: 12345);
-  /// final tusClient = await bunnyStream.createVideoWithTusUpload(
-  ///   title: 'My Video',
-  ///   videoFile: XFile('/path/to/video.mp4'),
-  /// );
-  ///
-  /// if (tusClient != null) {
-  ///   await tusClient.startUpload(
-  ///     onProgress: (progress, estimate) {
-  ///       print('Upload progress: $progress%, estimated time: $estimate');
-  ///     },
-  ///     onComplete: () {
-  ///       print('Upload complete!');
-  ///     },
-  ///   );
-  /// }
-  /// ```
-  Future<BunnyTusClient?> createVideoWithTusUpload({
-    required String title,
-    required XFile videoFile,
-    String? collectionId,
-    int? thumbnailTime,
-    int? expirationTimeInSeconds,
-    TusStore? store,
-    int maxChunkSize = 512 * 1024,
-    int retries = 3,
-    RetryScale retryScale = RetryScale.exponentialJitter,
-    int retryInterval = 5,
-  }) async {
-    try {
-      // First create the video entry to get the ID
-      final response = await dio.post(
-        _libraryMethod('/videos'),
-        opt: _optionsWithPostBody,
-        data: {
-          'title': title,
-          if (collectionId != null) 'collectionId': collectionId,
-        },
-      );
-
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        throw Exception('Failed to create video: ${response.statusCode}');
-      }
-
-      // Extract the video ID from the response
-      final String videoId = response.data!['guid'] as String;
-
-      // Create and return the TUS client for this video
-      return BunnyTusClient(
-        videoFile,
-        apiKey: _streamKey,
-        libraryId: _libraryId,
-        videoId: videoId,
-        title: title,
-        collectionId: collectionId,
-        thumbnailTime: thumbnailTime,
-        expirationTimeInSeconds: expirationTimeInSeconds,
-        store: store,
-        maxChunkSize: maxChunkSize,
-        retries: retries,
-        retryScale: retryScale,
-        retryInterval: retryInterval,
-      );
-    } catch (e, s) {
-      _sendError('Error creating video for TUS upload: $e\nStack: $s');
-      return null;
-    }
-  }
-
-  /// Create a TUS client for an existing video
-  BunnyTusClient getTusClientForVideo({
-    required String videoId,
-    required String title,
-    required XFile videoFile,
-    String? collectionId,
-    int? thumbnailTime,
-    int? expirationTimeInSeconds,
-    TusStore? store,
-    int maxChunkSize = 512 * 1024,
-    int retries = 3,
-    RetryScale retryScale = RetryScale.exponentialJitter,
-    int retryInterval = 5,
-    int parallelUploads = 3,
-  }) {
-    return BunnyTusClient(
-      videoFile,
-      apiKey: _streamKey,
-      libraryId: _libraryId,
-      videoId: videoId,
-      title: title,
-      collectionId: collectionId,
-      thumbnailTime: thumbnailTime,
-      expirationTimeInSeconds: expirationTimeInSeconds,
-      store: store,
-      maxChunkSize: maxChunkSize,
-      retries: retries,
-      retryScale: retryScale,
-      retryInterval: retryInterval,
-    );
   }
 }
