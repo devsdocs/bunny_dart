@@ -92,6 +92,9 @@ class Video extends CommonObject {
   /// The list of transcoding messages that describe potential issues while the video was transcoding
   final List<TranscodingMessages>? _transcodingMessages;
 
+  /// Determines if JIT encoding is enabled for the video
+  final bool _jitEncodingEnabled;
+
   int get videoLibraryId => _videoLibraryId;
   String? get guid => _guid;
   String? get title => _title;
@@ -120,6 +123,7 @@ class Video extends CommonObject {
   List<VideoMoment>? get moments => _moments;
   List<VideoMetaTag>? get metaTags => _metaTags;
   List<TranscodingMessages>? get transcodingMessages => _transcodingMessages;
+  bool get jitEncodingEnabled => _jitEncodingEnabled;
 
   Video({
     required int videoLibraryId,
@@ -150,6 +154,7 @@ class Video extends CommonObject {
     List<VideoMoment>? moments,
     List<VideoMetaTag>? metaTags,
     List<TranscodingMessages>? transcodingMessages,
+    required bool jitEncodingEnabled,
   }) : _videoLibraryId = videoLibraryId,
        _guid = guid,
        _title = title,
@@ -177,7 +182,8 @@ class Video extends CommonObject {
        _chapters = chapters,
        _moments = moments,
        _metaTags = metaTags,
-       _transcodingMessages = transcodingMessages;
+       _transcodingMessages = transcodingMessages,
+       _jitEncodingEnabled = jitEncodingEnabled;
 
   factory Video.fromMap(Map<String, dynamic> map) => Video(
     videoLibraryId: map['videoLibraryId']?.toInt() ?? 0,
@@ -243,6 +249,7 @@ class Video extends CommonObject {
               >((x) => TranscodingMessages.fromMap(x as Map<String, dynamic>)),
             )
             : null,
+    jitEncodingEnabled: map['jitEncodingEnabled'] ?? false,
   );
 
   @override

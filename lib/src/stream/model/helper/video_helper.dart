@@ -6,6 +6,19 @@ import 'package:bunny_dart/src/stream/model/video.dart';
 import 'package:crypto/crypto.dart';
 
 extension VideoHelper on Video {
+  /// Get direct MP4 links for the video.
+  ///
+  /// [baseUrl] is the CDN domain.
+  ///
+  /// [cdnToken] is the token from BunnyCDN.
+  ///
+  /// [expiredAt] is the expiry date for the token.
+  ///
+  /// [pathBased] is whether the token is path-based or not.
+  ///
+  /// Returns a map of resolution and direct MP4 link.
+  ///
+  /// https://support.bunny.net/hc/en-us/articles/360016055099-How-to-sign-URLs-for-BunnyCDN-Token-Authentication
   Map<String, String> getDirectMp4Link(
     String baseUrl, {
     required String cdnToken,
