@@ -70,6 +70,10 @@ class FfmpegNotFoundException implements Exception {
 
 // ignore: avoid_classes_with_only_static_members
 /// Helper class to extract metadata from local video files
+///
+/// This class requires FFmpeg to be installed on the system and available in the system PATH.
+///
+/// FFmpeg can be downloaded from https://ffmpeg.org/download.html
 class VideoMetadataHelper {
   /// Check if FFmpeg is available on the system
   static Future<bool> isFFmpegAvailable() async {
