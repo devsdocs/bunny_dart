@@ -4,77 +4,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 
-/// Result of metadata extraction containing video properties
-class VideoMetadataResult {
-  final String path;
-  final Duration? duration;
-  final int? width;
-  final int? height;
-  final String? codec;
-  final double? bitrate;
-  final double? fps;
-  final String? format;
-  final int fileSize;
-  final Map<String, dynamic> rawMetadata;
-  final DateTime creationDate;
-
-  VideoMetadataResult({
-    required this.path,
-    this.duration,
-    this.width,
-    this.height,
-    this.codec,
-    this.bitrate,
-    this.fps,
-    this.format,
-    required this.fileSize,
-    required this.rawMetadata,
-    DateTime? creationDate,
-  }) : creationDate = creationDate ?? DateTime.now();
-
-  /// Returns a formatted string with the video resolution (e.g. "1920x1080")
-  String? get resolution =>
-      (width != null && height != null) ? "${width}x$height" : null;
-
-  /// Returns a readable string with the video duration (e.g. "01:23:45")
-  String? get durationFormatted {
-    if (duration == null) return null;
-    final hours = duration!.inHours.toString().padLeft(2, '0');
-    final minutes = (duration!.inMinutes % 60).toString().padLeft(2, '0');
-    final seconds = (duration!.inSeconds % 60).toString().padLeft(2, '0');
-    return "$hours:$minutes:$seconds";
-  }
-
-  /// Returns a readable string with the file size (e.g. "123.45 MB")
-  String get fileSizeFormatted {
-    if (fileSize < 1024) return "$fileSize B";
-    if (fileSize < 1024 * 1024) {
-      return "${(fileSize / 1024).toStringAsFixed(2)} KB";
-    }
-    if (fileSize < 1024 * 1024 * 1024) {
-      return "${(fileSize / (1024 * 1024)).toStringAsFixed(2)} MB";
-    }
-    return "${(fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
-  }
-}
-
-/// Exception thrown when FFmpeg is not available
-class FfmpegNotFoundException implements Exception {
-  final String message;
-  FfmpegNotFoundException([this.message = "FFmpeg not found"]);
-
-  @override
-  String toString() =>
-      "FfmpegNotFoundException: $message. Download FFmpeg from https://ffmpeg.org/download.html and add it to your system PATH.";
-}
-
 // ignore: avoid_classes_with_only_static_members
 /// Helper class to extract metadata from local video files
 ///
 /// This class requires FFmpeg to be installed on the system and available in the system PATH.
 ///
 /// FFmpeg can be downloaded from https://ffmpeg.org/download.html
-class VideoMetadataHelper {
+class VideoMetadata {
   /// Check if FFmpeg is available on the system
   static Future<bool> isFFmpegAvailable() async {
     try {
@@ -539,6 +475,70 @@ class VideoMetadataHelper {
     // Normalize score to 0.0-1.0
     return factors > 0 ? score / factors : 0.0;
   }
+}
+
+/// Result of metadata extraction containing video properties
+class VideoMetadataResult {
+  final String path;
+  final Duration? duration;
+  final int? width;
+  final int? height;
+  final String? codec;
+  final double? bitrate;
+  final double? fps;
+  final String? format;
+  final int fileSize;
+  final Map<String, dynamic> rawMetadata;
+  final DateTime creationDate;
+
+  VideoMetadataResult({
+    required this.path,
+    this.duration,
+    this.width,
+    this.height,
+    this.codec,
+    this.bitrate,
+    this.fps,
+    this.format,
+    required this.fileSize,
+    required this.rawMetadata,
+    DateTime? creationDate,
+  }) : creationDate = creationDate ?? DateTime.now();
+
+  /// Returns a formatted string with the video resolution (e.g. "1920x1080")
+  String? get resolution =>
+      (width != null && height != null) ? "${width}x$height" : null;
+
+  /// Returns a readable string with the video duration (e.g. "01:23:45")
+  String? get durationFormatted {
+    if (duration == null) return null;
+    final hours = duration!.inHours.toString().padLeft(2, '0');
+    final minutes = (duration!.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (duration!.inSeconds % 60).toString().padLeft(2, '0');
+    return "$hours:$minutes:$seconds";
+  }
+
+  /// Returns a readable string with the file size (e.g. "123.45 MB")
+  String get fileSizeFormatted {
+    if (fileSize < 1024) return "$fileSize B";
+    if (fileSize < 1024 * 1024) {
+      return "${(fileSize / 1024).toStringAsFixed(2)} KB";
+    }
+    if (fileSize < 1024 * 1024 * 1024) {
+      return "${(fileSize / (1024 * 1024)).toStringAsFixed(2)} MB";
+    }
+    return "${(fileSize / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB";
+  }
+}
+
+/// Exception thrown when FFmpeg is not available
+class FfmpegNotFoundException implements Exception {
+  final String message;
+  FfmpegNotFoundException([this.message = "FFmpeg not found"]);
+
+  @override
+  String toString() =>
+      "FfmpegNotFoundException: $message. Download FFmpeg from https://ffmpeg.org/download.html and add it to your system PATH.";
 }
 
 /// Report with statistics about videos in a directory
