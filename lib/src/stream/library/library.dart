@@ -1,5 +1,6 @@
 import 'package:bunny_dart/src/common/response.dart';
 import 'package:bunny_dart/src/stream/collection/collection.dart';
+import 'package:bunny_dart/src/stream/helper/tus/bunny_tus_client.dart';
 import 'package:bunny_dart/src/stream/model/list_videos.dart';
 import 'package:bunny_dart/src/stream/model/video.dart';
 import 'package:bunny_dart/src/stream/model/video_chapter.dart';
@@ -8,12 +9,11 @@ import 'package:bunny_dart/src/stream/model/video_moment.dart';
 import 'package:bunny_dart/src/stream/model/video_play_data.dart';
 import 'package:bunny_dart/src/tool/dio_proxy.dart';
 import 'package:bunny_dart/src/tool/verbose.dart';
-import 'package:bunny_dart/src/stream/helper/tus/bunny_tus_client.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 
-part 'raw.dart';
 part 'extension.dart';
+part 'raw.dart';
 
 class BunnyStreamLibrary {
   BunnyStreamCollection collection(String collectionId) =>
