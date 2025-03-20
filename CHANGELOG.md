@@ -1,3 +1,7 @@
+## 1.1.0
+
+- Adjust for better support for web
+
 ## 1.0.2
 
 - Add TUS for video uploading

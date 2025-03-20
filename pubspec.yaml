@@ -1,6 +1,6 @@
 name: bunny_dart
 description: Dart wrapper for Bunny.net APIs
-version: 1.0.2
+version: 1.1.0
 repository: https://github.com/devsdocs/bunny_dart
 
 environment:
