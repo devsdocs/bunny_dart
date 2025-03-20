@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
 
 final dio = _DioProxy();
@@ -14,10 +13,7 @@ class _DioProxy {
     uri,
     data: data,
     options: (opt ?? Options()).copyWith(
-      headers: {
-        ...?opt?.headers,
-        HttpHeaders.acceptHeader: Headers.jsonContentType,
-      },
+      headers: {...?opt?.headers, 'accept': Headers.jsonContentType},
     ),
   );
 
@@ -29,10 +25,7 @@ class _DioProxy {
     uri,
     data: data,
     options: (opt ?? Options()).copyWith(
-      headers: {
-        ...?opt?.headers,
-        HttpHeaders.acceptHeader: Headers.jsonContentType,
-      },
+      headers: {...?opt?.headers, 'accept': Headers.jsonContentType},
     ),
   );
 
@@ -44,10 +37,7 @@ class _DioProxy {
     uri,
     data: data,
     options: (opt ?? Options()).copyWith(
-      headers: {
-        ...?opt?.headers,
-        HttpHeaders.acceptHeader: Headers.jsonContentType,
-      },
+      headers: {...?opt?.headers, 'accept': Headers.jsonContentType},
     ),
   );
 
@@ -59,10 +49,7 @@ class _DioProxy {
     uri,
     data: data,
     options: (opt ?? Options()).copyWith(
-      headers: {
-        ...?opt?.headers,
-        HttpHeaders.acceptHeader: Headers.jsonContentType,
-      },
+      headers: {...?opt?.headers, 'accept': Headers.jsonContentType},
     ),
   );
 }
