@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:bunny_dart/src/stream/helper/tus/store/store.dart';
 import 'package:bunny_dart/src/tool/double.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:crypto/crypto.dart';
@@ -12,10 +12,9 @@ import 'package:speed_test_dart/classes/server.dart';
 import 'package:speed_test_dart/speed_test_dart.dart';
 
 part 'client.dart';
-part 'tus_client_base.dart';
-part 'store.dart';
 part 'exceptions.dart';
 part 'retry_scale.dart';
+part 'tus_client_base.dart';
 
 /// Specialized TUS client for Bunny.net video uploads
 class BunnyTusClient extends TusClient {
@@ -107,18 +106,14 @@ class BunnyTusClient extends TusClient {
       if (thumbnailTime != null) 'thumbnailTime': thumbnailTime.toString(),
     };
 
-    // If we're storing metadata for future use, save it now
-    if (store is BunnyTusFileStore) {
-      final metadataStore = store! as BunnyTusFileStore;
-      await metadataStore.setMetadata(fingerprint, {
-        'videoId': videoId,
-        'libraryId': libraryId,
-        'title': title,
-        'expirationTime': expirationTime,
-        if (collectionId != null) 'collectionId': collectionId,
-        if (thumbnailTime != null) 'thumbnailTime': thumbnailTime,
-      });
-    }
+    await store!.setMetadata(fingerprint, {
+      'videoId': videoId,
+      'libraryId': libraryId,
+      'title': title,
+      'expirationTime': expirationTime,
+      if (collectionId != null) 'collectionId': collectionId,
+      if (thumbnailTime != null) 'thumbnailTime': thumbnailTime,
+    });
 
     await super.createUpload();
   }
@@ -349,17 +344,13 @@ class BunnyTusClient extends TusClient {
   /// Override onCompleteUpload to save additional metadata about the completed upload
   @override
   Future<void> onCompleteUpload() async {
-    // Update metadata to mark upload as complete
-    if (store is BunnyTusFileStore) {
-      final metadataStore = store! as BunnyTusFileStore;
-      final metadata = await metadataStore.getMetadata(fingerprint) ?? {};
-      metadata['completed'] = true;
-      metadata['completedAt'] = DateTime.now().toIso8601String();
+    final metadata = await store!.getMetadata(fingerprint) ?? {};
+    metadata['completed'] = true;
+    metadata['completedAt'] = DateTime.now().toIso8601String();
 
-      try {
-        await metadataStore.setMetadata(fingerprint, metadata);
-      } catch (_) {}
-    }
+    try {
+      await store!.setMetadata(fingerprint, metadata);
+    } catch (_) {}
 
     await super.onCompleteUpload();
   }

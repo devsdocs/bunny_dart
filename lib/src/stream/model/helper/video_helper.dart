@@ -116,7 +116,7 @@ extension VideoHelper on Video {
 
     final sha256Hex =
         sha256
-            .convert(utf8.encode(viewToken + guid + expiryTimeInSeconds))
+            .convert(utf8.encode(viewToken + guid! + expiryTimeInSeconds))
             .toString();
 
     embedLink.queryParameters['token'] = sha256Hex;

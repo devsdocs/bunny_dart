@@ -98,8 +98,8 @@ class TusClient extends TusClientBase {
 
       uploadUrl_ = _parseUrl(urlStr);
       await store?.set(_fingerprint, uploadUrl_!);
-    } on FileSystemException {
-      throw Exception('Cannot find file to upload');
+    } catch (e) {
+      throw Exception(e);
     }
   }
 
@@ -128,8 +128,6 @@ class TusClient extends TusClientBase {
       }
 
       return true;
-    } on FileSystemException {
-      throw Exception('Cannot find file to upload');
     } catch (e) {
       return false;
     }
@@ -274,10 +272,6 @@ class TusClient extends TusClientBase {
     required Stopwatch uploadStopwatch,
     required int totalBytes,
   }) async {
-    if (!File(file.path).existsSync()) {
-      throw Exception("Cannot find file ${file.path.split('/').last}");
-    }
-
     // Use consistent headers generation
     final uploadHeaders = _generateRequestHeaders({
       "Upload-Offset": "$_offset",

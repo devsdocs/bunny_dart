@@ -1,6 +1,7 @@
 import 'package:bunny_dart/src/common/response.dart';
 import 'package:bunny_dart/src/stream/collection/collection.dart';
 import 'package:bunny_dart/src/stream/helper/tus/bunny_tus_client.dart';
+import 'package:bunny_dart/src/stream/helper/tus/store/store.dart';
 import 'package:bunny_dart/src/stream/model/list_videos.dart';
 import 'package:bunny_dart/src/stream/model/video.dart';
 import 'package:bunny_dart/src/stream/model/video_chapter.dart';
