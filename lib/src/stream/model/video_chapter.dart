@@ -34,4 +34,9 @@ class VideoChapter extends CommonObject {
     'start': _start,
     'end': _end,
   };
+
+  @override
+  String toString() {
+    return 'VideoChapter{title: $_title, start: $_start, end: $_end}';
+  }
 }

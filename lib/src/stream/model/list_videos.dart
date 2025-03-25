@@ -41,4 +41,9 @@ class ListVideos extends CommonObject {
     'itemsPerPage': _itemsPerPage,
     if (_items != null) 'items': List<dynamic>.from(_items.map((x) => x.toMap)),
   };
+
+  @override
+  String toString() {
+    return 'ListVideos{totalItems: $_totalItems, currentPage: $_currentPage, itemsPerPage: $_itemsPerPage, items: $_items}';
+  }
 }

@@ -22,4 +22,9 @@ class VideoMetaTag extends CommonObject {
 
   @override
   Map<String, dynamic> get toMap => {'property': _property, 'value': _value};
+
+  @override
+  String toString() {
+    return 'VideoMetaTag{property: $_property, value: $_value}';
+  }
 }

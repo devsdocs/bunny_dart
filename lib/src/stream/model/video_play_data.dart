@@ -173,4 +173,9 @@ class VideoPlayData extends CommonObject {
     if (_fontFamily != null) 'fontFamily': _fontFamily,
     if (_playbackSpeeds != null) 'playbackSpeeds': _playbackSpeeds,
   };
+
+  @override
+  String toString() {
+    return 'VideoPlayData{video: $_video, captionsPath: $_captionsPath, seekPath: $_seekPath, thumbnailUrl: $_thumbnailUrl, fallbackUrl: $_fallbackUrl, videoPlaylistUrl: $_videoPlaylistUrl, originalUrl: $_originalUrl, previewUrl: $_previewUrl, controls: $_controls, enableDRM: $_enableDRM, drmVersion: $_drmVersion, playerKeyColor: $_playerKeyColor, vastTagUrl: $_vastTagUrl, captionsFontSize: $_captionsFontSize, captionsFontColor: $_captionsFontColor, captionsBackground: $_captionsBackground, uiLanguage: $_uiLanguage, allowEarlyPlay: $_allowEarlyPlay, tokenAuthEnabled: $_tokenAuthEnabled, enableMP4Fallback: $_enableMP4Fallback, showHeatmap: $_showHeatmap, fontFamily: $_fontFamily, playbackSpeeds: $_playbackSpeeds}';
+  }
 }

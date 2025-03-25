@@ -24,4 +24,9 @@ class VideoMoment extends CommonObject {
 
   @override
   Map<String, dynamic> get toMap => {'label': _label, 'timestamp': _time};
+
+  @override
+  String toString() {
+    return 'VideoMoment{label: $_label, timestamp: $_time}';
+  }
 }

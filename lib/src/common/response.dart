@@ -29,4 +29,9 @@ class CommonResponse extends CommonObject {
     'message': _message,
     'statusCode': _statusCode,
   };
+
+  @override
+  String toString() {
+    return 'CommonResponse{success: $_success, message: $_message, statusCode: $_statusCode}';
+  } 
 }

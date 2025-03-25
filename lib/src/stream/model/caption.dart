@@ -25,4 +25,9 @@ class Caption extends CommonObject {
     if (_srclang != null) 'srclang': _srclang,
     if (_label != null) 'label': _label,
   };
+
+  @override
+  String toString() {
+    return 'Caption{srclang: $_srclang, label: $_label}';
+  }
 }

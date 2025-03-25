@@ -39,7 +39,7 @@ class _BunnyStreamLibrary {
   /// Get a video from the library.
   ///
   /// https://docs.bunny.net/reference/video_getvideo
-  Future<Response<Map<String, dynamic>>> getVideoResponse(
+  Future<Response<Map<String, dynamic>>> getVideo(
     /// The video ID to retrieve.
     String videoId,
   ) async => await dio.get(_videoMethod(videoId), opt: _defaultOptions);
@@ -47,7 +47,7 @@ class _BunnyStreamLibrary {
   /// Update a video in the library.
   ///
   /// https://docs.bunny.net/reference/video_updatevideo
-  Future<Response<Map<String, dynamic>>> updateVideoResponse(
+  Future<Response<Map<String, dynamic>>> updateVideo(
     /// The video ID to update.
     String videoId, {
 
@@ -83,7 +83,7 @@ class _BunnyStreamLibrary {
   /// Delete a video from the library.
   ///
   /// https://docs.bunny.net/reference/video_deletevideo
-  Future<Response<Map<String, dynamic>>> deleteVideoResponse(
+  Future<Response<Map<String, dynamic>>> deleteVideo(
     /// The video ID to delete.
     String videoId,
   ) async => await dio.delete(_videoMethod(videoId), opt: _defaultOptions);
@@ -91,7 +91,7 @@ class _BunnyStreamLibrary {
   /// Upload a video to the library.
   ///
   /// https://docs.bunny.net/reference/video_uploadvideo
-  Future<Response<Map<String, dynamic>>> uploadVideoResponse(
+  Future<Response<Map<String, dynamic>>> uploadVideo(
     /// The video ID to be uploaded.
     String videoId, {
 
@@ -108,7 +108,7 @@ class _BunnyStreamLibrary {
   /// Get Video Heatmap
   ///
   /// https://docs.bunny.net/reference/video_getheatmap
-  Future<Response<Map<String, dynamic>>> getVideoHeatmapResponse(
+  Future<Response<Map<String, dynamic>>> getVideoHeatmap(
     String videoId,
   ) async =>
       await dio.get(_videoMethod(videoId, '/heatmap'), opt: _defaultOptions);
@@ -116,7 +116,7 @@ class _BunnyStreamLibrary {
   /// Get Video play data
   ///
   /// https://docs.bunny.net/reference/video_getvideoplaydata
-  Future<Response<Map<String, dynamic>>> getVideoPlayDataResponse(
+  Future<Response<Map<String, dynamic>>> getVideoPlayData(
     /// The video ID to retrieve.
     String videoId, {
 
@@ -130,7 +130,7 @@ class _BunnyStreamLibrary {
   /// Get Video Statistics
   ///
   /// https://docs.bunny.net/reference/video_getvideostatistics
-  Future<Response<Map<String, dynamic>>> getVideoStatisticsResponse({
+  Future<Response<Map<String, dynamic>>> getVideoStatistics({
     /// The start date of the statistics. If no value is passed, the last 30 days will be returned.
     DateTime? dateFrom,
 
@@ -155,7 +155,7 @@ class _BunnyStreamLibrary {
   /// Reencode Video
   ///
   /// https://docs.bunny.net/reference/video_reencodevideo
-  Future<Response<Map<String, dynamic>>> reencodeVideoResponse(
+  Future<Response<Map<String, dynamic>>> reencodeVideo(
     /// The video ID to reencode.
     String videoId,
   ) async =>
@@ -164,7 +164,7 @@ class _BunnyStreamLibrary {
   /// Add output codec to video
   ///
   /// https://docs.bunny.net/reference/video_reencodeusingcodec
-  Future<Response<Map<String, dynamic>>> addOutputCodecResponse(
+  Future<Response<Map<String, dynamic>>> addOutputCodec(
     /// The video ID to add output codec.
     String videoId, {
 
@@ -183,7 +183,7 @@ class _BunnyStreamLibrary {
   /// Repackage Video
   ///
   /// https://docs.bunny.net/reference/video_repackage
-  Future<Response<Map<String, dynamic>>> repackageVideoResponse(
+  Future<Response<Map<String, dynamic>>> repackageVideo(
     /// The video ID to repackage.
     String videoId, {
 
@@ -195,7 +195,7 @@ class _BunnyStreamLibrary {
   /// List all videos in the library.
   ///
   /// https://docs.bunny.net/reference/video_list
-  Future<Response<Map<String, dynamic>>> listVideosResponse({
+  Future<Response<Map<String, dynamic>>> listVideos({
     /// The page number to retrieve. Default is 1.
     int page = 1,
 
@@ -218,6 +218,114 @@ class _BunnyStreamLibrary {
       if (collectionId != null) 'collection': collectionId,
       'orderBy': orderBy,
     }),
+    opt: _defaultOptions,
+  );
+
+  /// Create a new video in the library.
+  ///
+  /// https://docs.bunny.net/reference/video_createvideo
+  Future<Response<Map<String, dynamic>>> createVideo({
+    /// The title of the video.
+    required String title,
+
+    /// The ID of the collection where the video will be put
+    String? collectionId,
+
+    /// Video time in ms to extract the main video thumbnail.
+    int? thumbnailTime,
+  }) async => await dio.post(
+    _libraryMethod('/videos'),
+    opt: _optionsWithPostBody,
+    data: {
+      'title': title,
+      if (collectionId != null) 'collectionId': collectionId,
+      if (thumbnailTime != null) 'thumbnailTime': thumbnailTime,
+    },
+  );
+
+  /// Set the video thumbnail.
+  ///
+  /// https://docs.bunny.net/reference/video_setthumbnail
+  Future<Response<Map<String, dynamic>>> setThumbnail(
+    /// The video ID to set the thumbnail.
+    String videoId, {
+
+    /// Thumbnail source URL.
+    String? thumbnailUrl,
+  }) async => await dio.post(
+    _videoMethod(videoId, '/thumbnail', {
+      if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+    }),
+    opt: _defaultOptions,
+  );
+
+  /// Fetch video from URL.
+  ///
+  /// https://docs.bunny.net/reference/video_fetchnewvideo
+  Future<Response<Map<String, dynamic>>> fetchVideo(
+    /// The video URL to fetch.
+    String videoUrl, {
+
+    /// Video title
+    String? title,
+
+    /// Header to pass to the video URL.
+    Map<String, String>? headers,
+
+    /// Collection ID to add the video to.
+    String? collectionId,
+
+    /// Thumbnail time in ms to extract the main video thumbnail.
+    int? thumbnailTime,
+  }) async => await dio.post(
+    _libraryMethod('/videos/fetch', {
+      if (collectionId != null) 'collectionId': collectionId,
+      if (thumbnailTime != null) 'thumbnailTime': thumbnailTime,
+    }),
+    opt: _optionsWithPostBody,
+    data: {
+      'url': videoUrl,
+      if (title != null) 'title': title,
+      if (headers != null) 'headers': headers,
+    },
+  );
+
+  /// Add caption to video.
+  ///
+  /// https://docs.bunny.net/reference/video_addcaption
+  Future<Response<Map<String, dynamic>>> addCaption(
+    /// The video ID to add caption.
+    String videoId, {
+
+    /// The unique srclang shortcode for the caption
+    required String srclang,
+
+    /// The text description label for the caption
+    String? label,
+
+    /// Base64 encoded captions file
+    String? captionsFile,
+  }) async => await dio.post(
+    _videoMethod(videoId, '/captions/$srclang'),
+    opt: _optionsWithPostBody,
+    data: {
+      'srclang': srclang,
+      if (label != null) 'label': label,
+      if (captionsFile != null) 'captionsFile': captionsFile,
+    },
+  );
+
+  /// Delete caption from video.
+  ///
+  /// https://docs.bunny.net/reference/video_deletecaption
+  Future<Response<Map<String, dynamic>>> deleteCaption(
+    /// The video ID to delete caption.
+    String videoId, {
+
+    /// The unique srclang shortcode for the caption
+    required String srclang,
+  }) async => await dio.delete(
+    _videoMethod(videoId, '/captions/$srclang'),
     opt: _defaultOptions,
   );
 }

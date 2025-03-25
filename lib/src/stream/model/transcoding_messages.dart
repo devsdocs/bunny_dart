@@ -52,6 +52,11 @@ class TranscodingMessages extends CommonObject {
     if (_message != null) 'message': _message,
     if (_value != null) 'value': _value,
   };
+
+  @override
+  String toString () {
+    return 'TranscodingMessages{timeStamp: $_timeStamp, level: $_level, issueCode: $_issueCode, message: $_message, value: $_value}';
+  }
 }
 
 enum TranscodingLevel {

@@ -45,7 +45,7 @@ class BunnyStreamLibrary {
 
   Future<Video?> getVideo(String videoId) async {
     try {
-      final response = await rawRequest.getVideoResponse(videoId);
+      final response = await rawRequest.getVideo(videoId);
       return Video.fromMap(response.data!);
     } catch (e, s) {
       _sendError('Error: $e\nStack: $s');
@@ -62,7 +62,7 @@ class BunnyStreamLibrary {
     List<VideoMetaTag>? metaTags,
   }) async {
     try {
-      final response = await rawRequest.updateVideoResponse(
+      final response = await rawRequest.updateVideo(
         videoId,
         title: title,
         collectionId: collectionId,
@@ -79,7 +79,7 @@ class BunnyStreamLibrary {
 
   Future<CommonResponse?> deleteVideo(String videoId) async {
     try {
-      final response = await rawRequest.deleteVideoResponse(videoId);
+      final response = await rawRequest.deleteVideo(videoId);
       return CommonResponse.fromMap(response.data!);
     } catch (e, s) {
       _sendError('Error: $e\nStack: $s');
@@ -94,7 +94,7 @@ class BunnyStreamLibrary {
     String? codecs,
   }) async {
     try {
-      final response = await rawRequest.uploadVideoResponse(
+      final response = await rawRequest.uploadVideo(
         videoId,
         jitEnabled: jitEnabled,
         resolutions: resolutions,
@@ -118,7 +118,7 @@ class BunnyStreamLibrary {
 
   Future<VideoPlayData?> getVideoPlayData(String videoId) async {
     try {
-      final response = await rawRequest.getVideoPlayDataResponse(videoId);
+      final response = await rawRequest.getVideoPlayData(videoId);
       return VideoPlayData.fromMap(response.data!);
     } catch (e, s) {
       _sendError('Error: $e\nStack: $s');
@@ -147,7 +147,7 @@ class BunnyStreamLibrary {
 
   Future<Video?> reencodeVideo(String videoId) async {
     try {
-      final response = await rawRequest.reencodeVideoResponse(videoId);
+      final response = await rawRequest.reencodeVideo(videoId);
       return Video.fromMap(response.data!);
     } catch (e, s) {
       _sendError('Error: $e\nStack: $s');
@@ -160,7 +160,7 @@ class BunnyStreamLibrary {
     required int outputCodec,
   }) async {
     try {
-      final response = await rawRequest.addOutputCodecResponse(
+      final response = await rawRequest.addOutputCodec(
         videoId,
         outputCodec: outputCodec,
       );
@@ -176,7 +176,7 @@ class BunnyStreamLibrary {
     bool keepOriginalFiles = true,
   }) async {
     try {
-      final response = await rawRequest.repackageVideoResponse(
+      final response = await rawRequest.repackageVideo(
         videoId,
         keepOriginalFiles: keepOriginalFiles,
       );
@@ -195,7 +195,7 @@ class BunnyStreamLibrary {
     String orderBy = 'date',
   }) async {
     try {
-      final response = await rawRequest.listVideosResponse(
+      final response = await rawRequest.listVideos(
         page: page,
         itemsPerPage: itemsPerPage,
         search: search,

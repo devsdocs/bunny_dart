@@ -289,6 +289,11 @@ class Video extends CommonObject {
     if (_transcodingMessages != null && _transcodingMessages.isNotEmpty)
       'transcodingMessages': _transcodingMessages.map((e) => e.toMap).toList(),
   };
+
+  @override
+  String toString() {
+    return 'Video{videoLibraryId: $_videoLibraryId, guid: $_guid, title: $_title, dateUploaded: $_dateUploaded, views: $_views, isPublic: $_isPublic, length: $_length, status: $_status, framerate: $_framerate, rotation: $_rotation, width: $_width, height: $_height, availableResolutions: $_availableResolutions, outputCodecs: $_outputCodecs, thumbnailCount: $_thumbnailCount, encodeProgress: $_encodeProgress, storageSize: $_storageSize, captions: $_captions, hasMP4Fallback: $_hasMP4Fallback, collectionId: $_collectionId, thumbnailFileName: $_thumbnailFileName, averageWatchTime: $_averageWatchTime, totalWatchTime: $_totalWatchTime, category: $_category, chapters: $_chapters, moments: $_moments, metaTags: $_metaTags, transcodingMessages: $_transcodingMessages, jitEncodingEnabled: $_jitEncodingEnabled}';
+  }
 }
 
 enum VideoStatus {
