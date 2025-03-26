@@ -33,5 +33,5 @@ class CommonResponse extends CommonObject {
   @override
   String toString() {
     return 'CommonResponse{success: $_success, message: $_message, statusCode: $_statusCode}';
-  } 
+  }
 }

@@ -54,7 +54,7 @@ class TranscodingMessages extends CommonObject {
   };
 
   @override
-  String toString () {
+  String toString() {
     return 'TranscodingMessages{timeStamp: $_timeStamp, level: $_level, issueCode: $_issueCode, message: $_message, value: $_value}';
   }
 }

@@ -1,5 +1,5 @@
 name: bunny_dart
-description: Dart wrapper for Bunny.net APIs
+description: A Dart wrapper for Bunny.net APIs supporting various endpoints, including TUS Resumable Upload for efficient video uploads, ensuring seamless integration and enhanced performance.
 version: 1.1.1
 repository: https://github.com/devsdocs/bunny_dart
 
