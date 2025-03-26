@@ -1,18 +1,30 @@
+import 'package:bunny_dart/src/tool/dio_proxy.dart';
+import 'package:dio/dio.dart';
+
+part 'raw.dart';
+
+/// Main class for BunnyStream Library Collections API
 class BunnyStreamCollection {
-  static const _base = 'video.bunnycdn.com';
+  _BunnyStreamCollection get rawRequest => _BunnyStreamCollection(
+    _streamKey,
+    libraryId: _libraryId,
+    collectionId: _collectionId,
+  );
 
-  Uri collectionMethod(String path) =>
-      Uri.https(_base, '/library/$libraryId/collections$path');
+  /// Library ID
+  final int _libraryId;
 
-  final int libraryId;
-  final String collectionId;
-  final String streamKey;
+  /// Collection ID
+  final String _collectionId;
+
+  /// Stream key
+  final String _streamKey;
 
   BunnyStreamCollection(
     String streamKey, {
     required int libraryId,
     required String collectionId,
-  }) : streamKey = streamKey,
-       collectionId = collectionId,
-       libraryId = libraryId;
+  }) : _streamKey = streamKey,
+       _collectionId = collectionId,
+       _libraryId = libraryId;
 }

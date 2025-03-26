@@ -1,4 +1,6 @@
-(WIP) Dart Wrapper for [Bunny.net](https://docs.bunny.net/reference) API
+(WIP) Dart Wrapper for [Bunny.net](https://docs.bunny.net/reference) APIs
+
+Supporting various endpoints, including TUS Resumable Upload for efficient video uploads, ensuring seamless integration and enhanced performance.
 
 ``` dart
 import 'dart:io';
