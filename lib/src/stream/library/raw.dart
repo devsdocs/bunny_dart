@@ -366,4 +366,41 @@ class _BunnyStreamLibrary {
       if (sourceLanguage != null) 'sourceLanguage': sourceLanguage,
     },
   );
+
+  /// Get video resolution.
+  ///
+  /// https://docs.bunny.net/reference/video_getvideoresolutions
+  Future<Response<Map<String, dynamic>>> videoResolutionsInfo(
+    /// The video ID to get resolutions.
+    String videoId,
+  ) async => await dio.get(
+    _videoMethod(videoId, '/resolutions'),
+    opt: _defaultOptions,
+  );
+
+  /// Cleanup unconfigured resolutions.
+  ///
+  /// https://docs.bunny.net/reference/video_deleteresolutions
+  Future<Response<Map<String, dynamic>>> deleteUnconfiguredResolutions(
+    /// The video ID to delete resolutions.
+    String videoId, {
+
+    /// Resolution to delete
+    String? resolutionsToDelete,
+
+    /// Delete non configured resolutions
+    bool deleteNonConfiguredResolutions = false,
+
+    /// Delete original
+    bool deleteOriginal = false,
+
+    /// Delete MP4
+    bool deleteMp4Files = false,
+
+    /// If set to true, no actual file manipulation will happen, only informational data will be returned
+    bool dryRun = false,
+  }) async => await dio.post(
+    _videoMethod(videoId, '/resolutions/cleanup'),
+    opt: _defaultOptions,
+  );
 }

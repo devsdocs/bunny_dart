@@ -16,7 +16,9 @@ import 'package:dio/dio.dart';
 part 'extension.dart';
 part 'raw.dart';
 
+/// The main class to interact with the BunnyStream Library API
 class BunnyStreamLibrary {
+  /// Get a collection by its ID
   BunnyStreamCollection collection(String collectionId) =>
       BunnyStreamCollection(
         _streamKey,
@@ -24,6 +26,7 @@ class BunnyStreamLibrary {
         collectionId: collectionId,
       );
 
+  /// Raw request methods
   _BunnyStreamLibrary get rawRequest =>
       _BunnyStreamLibrary(_streamKey, libraryId: _libraryId);
 
@@ -31,8 +34,13 @@ class BunnyStreamLibrary {
     errorPrint(message, isPrint: _errorPrint);
   }
 
+  /// Library ID
   final int _libraryId;
+
+  /// Stream key
   final String _streamKey;
+
+  /// Whether to print errors to the console
   final bool _errorPrint;
 
   BunnyStreamLibrary(
