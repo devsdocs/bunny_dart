@@ -1,6 +1,8 @@
 part of 'library.dart';
 
+/// Helper methods for the BunnyStreamLibrary
 extension BunnyStreamLibraryHelper on BunnyStreamLibrary {
+  /// Get all videos from the library recursively
   Future<List<Video>> getAllVideos({
     int itemsPerPageArg = 1000,
     int page = 1,
@@ -34,7 +36,9 @@ extension BunnyStreamLibraryHelper on BunnyStreamLibrary {
   }
 }
 
+/// Extension for the BunnyStreamLibrary to handle TUS uploads
 extension BunnyTUSUpload on BunnyStreamLibrary {
+  /// Create a video and return a TUS client for the upload
   Future<BunnyTusClient?> createVideoWithTusUpload({
     required String title,
     required XFile videoFile,

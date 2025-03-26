@@ -328,4 +328,42 @@ class _BunnyStreamLibrary {
     _videoMethod(videoId, '/captions/$srclang'),
     opt: _defaultOptions,
   );
+
+  /// Transcribe video.
+  ///
+  /// https://docs.bunny.net/reference/video_transcribevideo
+  Future<Response<Map<String, dynamic>>> transcribeVideo(
+    /// The video ID to delete caption.
+    String videoId, {
+
+    /// Video source language, use ISO 639-1 language code
+    String? language,
+
+    bool force = false,
+
+    /// List of languages that will be used as target languages, use ISO 639-1 language codes
+    List<String>? targetLanguages,
+
+    /// Whether video title should be automatically generated
+    bool generateTitle = false,
+
+    /// Whether video description should be automatically generated
+    bool generateDescription = false,
+
+    /// Video source language, use ISO 639-1 language code. IMPORTANT: This value takes precedence over query param [language], if specified
+    String? sourceLanguage,
+  }) async => await dio.post(
+    _videoMethod(videoId, '/transcribe', {
+      if (language != null) 'language': language,
+      'force': force,
+    }),
+    opt: _optionsWithPostBody,
+    data: {
+      if (targetLanguages != null && targetLanguages.isNotEmpty)
+        'targetLanguages': targetLanguages,
+      'generateTitle': generateTitle,
+      'generateDescription': generateDescription,
+      if (sourceLanguage != null) 'sourceLanguage': sourceLanguage,
+    },
+  );
 }
