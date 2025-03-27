@@ -62,4 +62,53 @@ class _BunnyStreamCollection {
       opt: _optionsWithPostBody,
     );
   }
+
+  /// Delete a collection
+  ///
+  /// https://docs.bunny.net/reference/collection_deletecollection
+  Future<Response<Map<String, dynamic>>?> deleteCollection() async {
+    return await dio.delete(collectionMethod(), opt: _defaultOptions);
+  }
+
+  /// Get collection list
+  ///
+  /// https://docs.bunny.net/reference/collection_list
+  Future<Response<Map<String, dynamic>>?> listCollections({
+    /// Page number
+    int page = 1,
+
+    /// Number of items per page
+    int itemsPerPage = 100,
+
+    /// Search
+    String? search,
+
+    /// Order by
+    String orderBy = 'date',
+
+    /// Include thumbnails
+    bool includeThumbnails = false,
+  }) async {
+    return await dio.get(
+      collectionMethod(
+        includeCollectionId: false,
+        query: {'includeThumbnails': includeThumbnails},
+      ),
+      opt: _defaultOptions,
+    );
+  }
+
+  /// Create a collection
+  ///
+  /// https://docs.bunny.net/reference/collection_createcollection
+  Future<Response<Map<String, dynamic>>?> createCollection({
+    /// Name of the collection
+    String? name,
+  }) async {
+    return await dio.post(
+      collectionMethod(),
+      data: {if (name != null) 'name': name},
+      opt: _optionsWithPostBody,
+    );
+  }
 }
