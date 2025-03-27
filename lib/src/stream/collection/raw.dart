@@ -39,7 +39,7 @@ class _BunnyStreamCollection {
   /// Get a collection by its ID
   ///
   /// https://docs.bunny.net/reference/collection_getcollection
-  Future<Response<Map<String, dynamic>>?> getCollection({
+  Future<Response<Map<String, dynamic>>> getCollection({
     /// Include thumbnails
     bool includeThumbnails = false,
   }) async {
@@ -52,7 +52,7 @@ class _BunnyStreamCollection {
   /// Update a collection
   ///
   /// https://docs.bunny.net/reference/collection_updatecollection
-  Future<Response<Map<String, dynamic>>?> updateCollection({
+  Future<Response<Map<String, dynamic>>> updateCollection({
     /// Name of the collection
     String? name,
   }) async {
@@ -66,14 +66,14 @@ class _BunnyStreamCollection {
   /// Delete a collection
   ///
   /// https://docs.bunny.net/reference/collection_deletecollection
-  Future<Response<Map<String, dynamic>>?> deleteCollection() async {
+  Future<Response<Map<String, dynamic>>> deleteCollection() async {
     return await dio.delete(collectionMethod(), opt: _defaultOptions);
   }
 
   /// Get collection list
   ///
   /// https://docs.bunny.net/reference/collection_list
-  Future<Response<Map<String, dynamic>>?> listCollections({
+  Future<Response<Map<String, dynamic>>> listCollections({
     /// Page number
     int page = 1,
 
@@ -101,7 +101,7 @@ class _BunnyStreamCollection {
   /// Create a collection
   ///
   /// https://docs.bunny.net/reference/collection_createcollection
-  Future<Response<Map<String, dynamic>>?> createCollection({
+  Future<Response<Map<String, dynamic>>> createCollection({
     /// Name of the collection
     String? name,
   }) async {
