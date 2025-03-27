@@ -3,7 +3,6 @@
 Supporting various endpoints, including TUS Resumable Upload for efficient video uploads, ensuring seamless integration and enhanced performance.
 
 ``` dart
-import 'dart:io';
 import 'package:bunny_dart/bunny_dart.dart';
 
 const streamKey = 'YOUR_BUNNY_STREAM_KEY';
