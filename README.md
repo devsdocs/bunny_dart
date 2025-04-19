@@ -1,5 +1,7 @@
 (WIP) Dart Wrapper for [Bunny.net](https://docs.bunny.net/reference) APIs
 
+[![pub package](https://img.shields.io/pub/v/bunny_dart)](https://pub.dev/packages/bunny_dart)
+
 Supporting various endpoints, including TUS Resumable Upload for efficient video uploads, ensuring seamless integration and enhanced performance.
 
 ``` dart
