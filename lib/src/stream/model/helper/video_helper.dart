@@ -304,7 +304,7 @@ extension VideoHelper on Video {
   /// Returns a map of resolution and direct MP4 link.
   ///
   /// https://support.bunny.net/hc/en-us/articles/360016055099-How-to-sign-URLs-for-BunnyCDN-Token-Authentication
-  Map<String, String> getAllMp4VideoUrlsWithCDNToken(
+  Map<Resolution, String> getAllMp4VideoUrlsWithCDNToken(
     String baseUrl, {
     required String cdnToken,
     required DateTime expiredAt,
@@ -321,9 +321,13 @@ extension VideoHelper on Video {
     }
     final expiry = (expiredAt.millisecondsSinceEpoch ~/ 1000).toString();
 
-    final links = <String, String>{};
+    final links = <Resolution, String>{};
 
     for (final q in availableResolutions!.split(',')) {
+      final resolution = Resolution.values.firstWhere(
+        (e) => e.valueString == q,
+        orElse: () => Resolution.unknown,
+      );
       final path = '/$guid/play_$q.mp4';
 
       final token = base64Encode(
@@ -341,14 +345,14 @@ extension VideoHelper on Video {
           'token_path': path,
         });
 
-        links[q] = Uri.decodeFull(url.toString()).replaceAll('?', '/');
+        links[resolution] = Uri.decodeFull(url.toString()).replaceAll('?', '/');
       } else {
         final url = Uri.https(baseUrl, path, {
           'token': token,
           'expires': expiry,
         });
 
-        links[q] = Uri.decodeFull(url.toString());
+        links[resolution] = Uri.decodeFull(url.toString());
       }
     }
 
