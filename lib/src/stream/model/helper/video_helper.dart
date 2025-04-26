@@ -323,12 +323,8 @@ extension VideoHelper on Video {
 
     final links = <Resolution, String>{};
 
-    for (final q in availableResolutions!.split(',')) {
-      final resolution = Resolution.values.firstWhere(
-        (e) => e.valueString == q,
-        orElse: () => Resolution.unknown,
-      );
-      final path = '/$guid/play_$q.mp4';
+    for (final q in availableResolutionsList) {
+      final path = '/$guid/play_${q.valueString}.mp4';
 
       final token = base64Encode(
             sha256.convert(utf8.encode(cdnToken + path + expiry)).bytes,
@@ -345,14 +341,14 @@ extension VideoHelper on Video {
           'token_path': path,
         });
 
-        links[resolution] = Uri.decodeFull(url.toString()).replaceAll('?', '/');
+        links[q] = Uri.decodeFull(url.toString()).replaceAll('?', '/');
       } else {
         final url = Uri.https(baseUrl, path, {
           'token': token,
           'expires': expiry,
         });
 
-        links[resolution] = Uri.decodeFull(url.toString());
+        links[q] = Uri.decodeFull(url.toString());
       }
     }
 
