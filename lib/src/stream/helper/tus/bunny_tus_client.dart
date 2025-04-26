@@ -144,8 +144,14 @@ class BunnyTusClient extends TusClient {
 
   /// Start upload to Bunny.net
   Future<void> uploadToBunny({
-    Function(int, int, double, Duration)? onProgress,
-    Function(TusClient, Duration?)? onStart,
+    Function(
+      int totalBytesSend,
+      int totalBytes,
+      double progressPercentage,
+      Duration estimatedDuration,
+    )?
+    onProgress,
+    Function(TusClient client, Duration? duration)? onStart,
     Function()? onComplete,
     bool measureUploadSpeed = false,
   }) async {
@@ -176,8 +182,14 @@ class BunnyTusClient extends TusClient {
 
   /// Helper method to create and start upload in a single call
   Future<void> startUpload({
-    Function(int, int, double, Duration)? onProgress,
-    Function(TusClient, Duration?)? onStart,
+    Function(
+      int totalBytesSend,
+      int totalBytes,
+      double progressPercentage,
+      Duration estimatedDuration,
+    )?
+    onProgress,
+    Function(TusClient client, Duration? duration)? onStart,
     Function()? onComplete,
     bool measureUploadSpeed = false,
     bool forceNewUpload = false,

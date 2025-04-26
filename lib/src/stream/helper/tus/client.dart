@@ -194,8 +194,14 @@ class TusClient extends TusClientBase {
   /// [ProtocolException] on server error
   @override
   Future<void> upload({
-    Function(int, int, double, Duration)? onProgress,
-    Function(TusClient, Duration?)? onStart,
+    Function(
+      int totalBytesSend,
+      int totalBytes,
+      double progressPercentage,
+      Duration estimatedDuration,
+    )?
+    onProgress,
+    Function(TusClient client, Duration? duration)? onStart,
     Function()? onComplete,
     required Uri uri,
     Map<String, String>? metadata = const {},
@@ -266,7 +272,13 @@ class TusClient extends TusClientBase {
   }
 
   Future<void> _performUpload({
-    Function(int, int, double, Duration)? onProgress,
+    Function(
+      int totalBytesSend,
+      int totalBytes,
+      double progressPercentage,
+      Duration estimatedDuration,
+    )?
+    onProgress,
     Function()? onComplete,
     Map<String, String>? headers,
     required Stopwatch uploadStopwatch,
