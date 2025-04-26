@@ -15,8 +15,9 @@ void main() async {
   );
 
   await upload!.startUpload(
-    onStart: (p0, p1) {},
-    onProgress: (sended, total, speed, eta) {},
+    onProgress:
+        (totalBytesSend, totalBytes, progressPercentage, estimatedDuration) {},
+    onStart: (client, duration) {},
     onComplete: () {},
     measureUploadSpeed: true,
   );
