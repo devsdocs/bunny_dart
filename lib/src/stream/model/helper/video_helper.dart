@@ -52,19 +52,19 @@ extension VideoHelper on Video {
     return availableResolutions!.split(',').map((e) {
       switch (e) {
         case '240p':
-          return Resolution._240p;
+          return Resolution.p240;
         case '360p':
-          return Resolution._360p;
+          return Resolution.p360;
         case '480p':
-          return Resolution._480p;
+          return Resolution.p480;
         case '720p':
-          return Resolution._720p;
+          return Resolution.p720;
         case '1080p':
-          return Resolution._1080p;
+          return Resolution.p1080;
         case '1440p':
-          return Resolution._1440p;
+          return Resolution.p1440;
         case '2160p':
-          return Resolution._2160p;
+          return Resolution.p2160;
         default:
           return Resolution.unknown;
       }
@@ -371,31 +371,31 @@ extension VideoHelper on Video {
 enum Resolution {
   /// Handling unknown resolution.
   unknown,
-  _240p,
-  _360p,
-  _480p,
-  _720p,
-  _1080p,
-  _1440p,
-  _2160p;
+  p240,
+  p360,
+  p480,
+  p720,
+  p1080,
+  p1440,
+  p2160;
 
   const Resolution();
 
   String get valueString {
     switch (this) {
-      case _240p:
+      case p240:
         return '240p';
-      case _360p:
+      case p360:
         return '360p';
-      case _480p:
+      case p480:
         return '480p';
-      case _720p:
+      case p720:
         return '720p';
-      case _1080p:
+      case p1080:
         return '1080p';
-      case _1440p:
+      case p1440:
         return '1440p';
-      case _2160p:
+      case p2160:
         return '2160p';
 
       case Resolution.unknown:
