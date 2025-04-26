@@ -73,10 +73,14 @@ extension VideoHelper on Video {
 
   /// Get embed link for the video with customizable parameters and token.
   ///
+  /// [viewToken] is embed view token
+  ///
+  /// [expiredAt] expiry time of the link. Default: 1 day
+  ///
   /// https://docs.bunny.net/docs/stream-embed-token-authentication
   String getDefaultEmbedViewLinkWithToken(
     String viewToken, {
-    required DateTime expiredAt,
+    DateTime? expiredAt,
     bool? autoplay,
     String? captions,
     bool? preload,
@@ -112,7 +116,10 @@ extension VideoHelper on Video {
     );
 
     final expiryTimeInSeconds =
-        (expiredAt.millisecondsSinceEpoch ~/ 1000).toString();
+        ((expiredAt ?? DateTime.now().add(const Duration(days: 1)))
+                    .millisecondsSinceEpoch ~/
+                1000)
+            .toString();
 
     final sha256Hex =
         sha256
@@ -297,7 +304,7 @@ extension VideoHelper on Video {
   ///
   /// [cdnToken] is the token from BunnyCDN.
   ///
-  /// [expiredAt] is the expiry date for the token.
+  /// [expiredAt] is the expiry date for the token. Default: 1 day.
   ///
   /// [pathBased] is whether the token is path-based or not.
   ///
@@ -307,7 +314,7 @@ extension VideoHelper on Video {
   Map<Resolution, String> getAllMp4VideoUrlsWithCDNToken(
     String baseUrl, {
     required String cdnToken,
-    required DateTime expiredAt,
+    DateTime? expiredAt,
     bool pathBased = true,
   }) {
     if (!hasMP4Fallback) {
@@ -319,7 +326,11 @@ extension VideoHelper on Video {
     if (availableResolutions!.isEmpty) {
       return {};
     }
-    final expiry = (expiredAt.millisecondsSinceEpoch ~/ 1000).toString();
+    final expiry =
+        ((expiredAt ?? DateTime.now().add(const Duration(days: 1)))
+                    .millisecondsSinceEpoch ~/
+                1000)
+            .toString();
 
     final links = <Resolution, String>{};
 
