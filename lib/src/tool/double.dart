@@ -24,6 +24,14 @@ extension DoubleExt on double {
         mod = 100000;
       case 6:
         mod = 1000000;
+      case 7:
+        mod = 10000000;
+      case 8:
+        mod = 100000000;
+      case 9:
+        mod = 1000000000;
+      case 10:
+        mod = 10000000000;
       default:
         mod = pow(10, fractionDigits.toDouble()).toDouble();
     }
